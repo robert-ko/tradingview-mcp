@@ -1,52 +1,68 @@
 /**
  * Core drawing logic.
  */
-import { evaluate as _evaluate, getChartApi as _getChartApi, safeString, requireFinite } from '../connection.js';
+import { evaluate as _evaluate, evaluateAsync as _evaluateAsync, getChartApi as _getChartApi, safeString, requireFinite } from '../connection.js';
+import { evaluateInChart } from './tab.js';
 
 function _resolve(deps) {
   return { evaluate: deps?.evaluate || _evaluate, getChartApi: deps?.getChartApi || _getChartApi };
 }
 
-export async function drawShape({ shape, point, point2, overrides: overridesRaw, text, _deps }) {
-  const { evaluate, getChartApi } = _resolve(_deps);
+/**
+ * Build a JS snippet that activates pane N (via DOM click on its mainDiv),
+ * runs the drawing call, then restores the previous active pane.
+ */
+function buildDrawExpr({ shape, p1time, p1price, p2time, p2price, overridesStr, textStr, paneIndex }) {
+  const paneActivation = paneIndex != null ? `
+    var _cwc = window.TradingViewApi._chartWidgetCollection;
+    var _targetPane = _cwc.getAll()[${paneIndex}];
+    var _activeApi = window.TradingViewApi._activeChartWidgetWV._value;
+    if (_targetPane && _activeApi._chartWidget !== _targetPane) {
+      var _div = _targetPane._mainDiv;
+      if (_div) {
+        _div.dispatchEvent(new MouseEvent('mousedown', {bubbles:true}));
+        _div.dispatchEvent(new MouseEvent('click', {bubbles:true}));
+      }
+    }
+  ` : '';
+
+  const api = `window.TradingViewApi._activeChartWidgetWV._value`;
+  const drawCall = p2time != null
+    ? `${api}.createMultipointShape([{time:${p1time},price:${p1price}},{time:${p2time},price:${p2price}}],{shape:${safeString(shape)},overrides:${overridesStr},text:${textStr}})`
+    : `${api}.createShape({time:${p1time},price:${p1price}},{shape:${safeString(shape)},overrides:${overridesStr},text:${textStr}})`;
+
+  return `(async function(){
+    ${paneActivation}
+    var _before = ${api}.getAllShapes().map(function(s){return s.id;});
+    await ${drawCall};
+    var _after = ${api}.getAllShapes().map(function(s){return s.id;});
+    return _after.find(function(id){return _before.indexOf(id)===-1;}) || null;
+  })()`;
+}
+
+export async function drawShape({ shape, point, point2, overrides: overridesRaw, text, chartId, paneIndex, _deps }) {
+  const { evaluate } = _resolve(_deps);
   const overrides = overridesRaw ? (typeof overridesRaw === 'string' ? JSON.parse(overridesRaw) : overridesRaw) : {};
-  const apiPath = await getChartApi();
   const overridesStr = JSON.stringify(overrides || {});
   const textStr = text ? JSON.stringify(text) : '""';
 
   const p1time = requireFinite(point.time, 'point.time');
   const p1price = requireFinite(point.price, 'point.price');
+  const p2time = point2 ? requireFinite(point2.time, 'point2.time') : null;
+  const p2price = point2 ? requireFinite(point2.price, 'point2.price') : null;
 
-  const before = await evaluate(`${apiPath}.getAllShapes().map(function(s) { return s.id; })`);
+  const expr = buildDrawExpr({ shape, p1time, p1price, p2time, p2price, overridesStr, textStr, paneIndex });
 
-  if (point2) {
-    const p2time = requireFinite(point2.time, 'point2.time');
-    const p2price = requireFinite(point2.price, 'point2.price');
-    await evaluate(`
-      ${apiPath}.createMultipointShape(
-        [{ time: ${p1time}, price: ${p1price} }, { time: ${p2time}, price: ${p2price} }],
-        { shape: ${safeString(shape)}, overrides: ${overridesStr}, text: ${textStr} }
-      )
-    `);
-  } else {
-    await evaluate(`
-      ${apiPath}.createShape(
-        { time: ${p1time}, price: ${p1price} },
-        { shape: ${safeString(shape)}, overrides: ${overridesStr}, text: ${textStr} }
-      )
-    `);
-  }
+  const newId = chartId
+    ? await evaluateInChart(chartId, expr, { awaitPromise: true })
+    : await _evaluateAsync(expr);
 
-  await new Promise(r => setTimeout(r, 200));
-  const after = await evaluate(`${apiPath}.getAllShapes().map(function(s) { return s.id; })`);
-  const newId = (after || []).find(id => !(before || []).includes(id)) || null;
-  const result = { entity_id: newId };
-  return { success: true, shape, entity_id: result?.entity_id };
+  return { success: true, shape, entity_id: newId || null };
 }
 
 export async function listDrawings() {
-  const apiPath = await getChartApi();
-  const shapes = await evaluate(`
+  const apiPath = await _getChartApi();
+  const shapes = await _evaluate(`
     (function() {
       var api = ${apiPath};
       var all = api.getAllShapes();
@@ -57,8 +73,8 @@ export async function listDrawings() {
 }
 
 export async function getProperties({ entity_id }) {
-  const apiPath = await getChartApi();
-  const result = await evaluate(`
+  const apiPath = await _getChartApi();
+  const result = await _evaluate(`
     (function() {
       var api = ${apiPath};
       var eid = ${safeString(entity_id)};
@@ -86,8 +102,8 @@ export async function getProperties({ entity_id }) {
 }
 
 export async function removeOne({ entity_id }) {
-  const apiPath = await getChartApi();
-  const result = await evaluate(`
+  const apiPath = await _getChartApi();
+  const result = await _evaluate(`
     (function() {
       var api = ${apiPath};
       var eid = ${safeString(entity_id)};
@@ -107,7 +123,7 @@ export async function removeOne({ entity_id }) {
 }
 
 export async function clearAll() {
-  const apiPath = await getChartApi();
-  await evaluate(`${apiPath}.removeAllShapes()`);
+  const apiPath = await _getChartApi();
+  await _evaluate(`${apiPath}.removeAllShapes()`);
   return { success: true, action: 'all_shapes_removed' };
 }

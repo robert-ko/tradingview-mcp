@@ -24,4 +24,9 @@ export function registerTabTools(server) {
     try { return jsonResult(await core.switchTab({ index })); }
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });
+
+  server.tool('tab_windows', 'List all TradingView windows and their tabs with pane symbols', {}, async () => {
+    try { return jsonResult(await core.listWindows()); }
+    catch (err) { return jsonResult({ success: false, error: err.message }, true); }
+  });
 }
