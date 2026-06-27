@@ -1,0 +1,21 @@
+{
+  "defaults": {
+    "resolution": "10S",
+    "expiration_days": 30,
+    "popup": true,
+    "mobile_push": true,
+    "sms_over_email": true,
+    "auto_deactivate": false
+  },
+  "alerts": [
+    { "template": "pdh", "symbols": ["NASDAQ:QUBT", "NYSE:IONQ", "NASDAQ:RGTI", "NYSE:QBTS"] },
+    { "template": "pdl", "symbols": ["NASDAQ:QUBT", "NYSE:IONQ", "NASDAQ:RGTI", "NYSE:QBTS"] },
+    { "template": "pwh", "symbols": ["NASDAQ:QUBT", "NYSE:IONQ"] },
+    { "template": "buyers_trapped", "symbols": ["NASDAQ:RGTI"] },
+    { "template": "sellers_trapped", "symbols": ["NASDAQ:RGTI"] },
+    { "ema_cross": { "length": 89, "source": "close", "direction": "down" }, "symbols": ["NYSE:IONQ"] },
+    { "ema_cross_ema": { "fast": 9, "slow": 21, "source": "close", "direction": "up" }, "symbols": ["NASDAQ:QUBT", "NYSE:IONQ"] },
+    { "vwap_cross": { "direction": "cross" }, "symbols": ["NASDAQ:QUBT", "NYSE:IONQ", "NASDAQ:RGTI", "NYSE:QBTS"] },
+    { "price_cross_value": { "value": 12.5, "direction": "up" }, "symbols": ["NASDAQ:QUBT"] }
+  ]
+}

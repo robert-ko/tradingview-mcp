@@ -25,4 +25,12 @@ export function registerAlertTools(server) {
     try { return jsonResult(await core.deleteAlerts({ alert_ids, delete_inactive, delete_all })); }
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });
+
+  server.tool('alert_set_active', 'Pause (active=false) or re-enable (active=true) existing alerts by id', {
+    alert_ids: z.array(z.coerce.number()).describe('Alert IDs to pause/re-enable'),
+    active: z.coerce.boolean().describe('true = re-enable (restart), false = pause (stop)'),
+  }, async ({ alert_ids, active }) => {
+    try { return jsonResult(await core.setAlertsActive({ alert_ids, active })); }
+    catch (err) { return jsonResult({ success: false, error: err.message }, true); }
+  });
 }

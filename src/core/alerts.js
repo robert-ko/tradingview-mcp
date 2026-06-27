@@ -153,3 +153,35 @@ export async function deleteAlerts({ alert_ids, delete_inactive, delete_all } = 
   }
   return { success: true, deleted, source: 'pricealerts_api' };
 }
+
+const STOP_URL = 'https://pricealerts.tradingview.com/stop_alerts';
+const RESTART_URL = 'https://pricealerts.tradingview.com/restart_alerts';
+
+/**
+ * Pause (active=false → stop_alerts) or re-enable (active=true → restart_alerts) alerts
+ * by id. Same pricealerts API + no-Content-Type trick as deleteAlerts. Chunks of 100.
+ */
+export async function setAlertsActive({ alert_ids, active } = {}) {
+  if (!Array.isArray(alert_ids) || alert_ids.length === 0) throw new Error('alert_ids: [...] required');
+  const ids = alert_ids.map(Number).filter(Number.isFinite);
+  const url = active ? RESTART_URL : STOP_URL;
+  const CHUNK = 100;
+  let changed = 0;
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    const batch = ids.slice(i, i + CHUNK);
+    const status = await evaluateAsync(`
+      fetch(${safeString(url)}, {
+        method: 'POST', credentials: 'include',
+        body: JSON.stringify({ payload: { alert_ids: ${JSON.stringify(batch)} } })
+      })
+        .then(function(r) { return r.json(); })
+        .then(function(j) { return (j && j.s) || 'no_status'; })
+        .catch(function(e) { return 'fetch_error:' + e.message; })
+    `);
+    if (status !== 'ok') {
+      return { success: false, changed, error: `${active ? 'restart' : 'stop'}_alerts returned "${status}" after ${changed}`, source: 'pricealerts_api' };
+    }
+    changed += batch.length;
+  }
+  return { success: true, changed, active, source: 'pricealerts_api' };
+}

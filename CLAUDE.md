@@ -110,6 +110,8 @@ All four tools accept optional `chart_id` and `pane_index` to query a **backgrou
 - `alert_create` → set price alert (condition: "crossing", "greater_than", "less_than")
 - `alert_list` → view all alerts (each has `active` true/false; inactive = triggered/disabled)
 - `alert_delete` → remove alerts: `alert_ids: [...]` (specific), `delete_inactive: true` (clear triggered/disabled, keep active), or `delete_all: true`. Deletes via the pricealerts REST API in chunks of 100. CLI: `tv alert delete --ids 1,2,3` / `--inactive` / `--all`.
+- `alert_set_active` → pause/re-enable existing alerts: `alert_ids: [...]`, `active: true|false` (stop_alerts/restart_alerts). CLI: `tv alert disable --ids 1,2,3` / `tv alert enable --ids 1,2,3`.
+- **Indicator-condition alerts (e.g. "price crosses VWAP") across many symbols**: `alert_create` only does price alerts. To author a complex condition once in the UI and fan it out, use `scripts/alert_inject.mjs` (`arm` → create one in the UI → `show` → `replay EXCHANGE:SYM ...`). **Editing** an alert = re-send the create payload with the existing `alert_id` to `modify_restart_alert` (there's no `modify_alert`). Full API notes (no-Content-Type CORS trick, payload/series shapes, all endpoints): `docs/ALERT_INJECTION.md`.
 
 ### "Navigate the UI"
 - `ui_open_panel` → open/close pine-editor, strategy-tester, watchlist, alerts, trading

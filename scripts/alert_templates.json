@@ -1,0 +1,581 @@
+{
+  "pdh": {
+    "conditions": [
+      {
+        "type": "alert_cond",
+        "frequency": "on_first_fire",
+        "alert_cond_id": "plot_0",
+        "series": [
+          {
+            "type": "study",
+            "study": "Script@tv-scripting-101",
+            "offsets_by_plot": {},
+            "inputs": {
+              "pineFeatures": "{\"indicator\":1,\"plot\":1,\"str\":1,\"ta\":1,\"math\":1,\"alertcondition\":1,\"line\":1,\"label\":1,\"table\":1,\"request.security\":1,\"first_visible_time\":1,\"last_visible_time\":1}",
+              "in_0": 2,
+              "in_1": "small",
+              "in_2": 75,
+              "in_3": 4294967295,
+              "in_4": 14,
+              "in_5": false,
+              "in_6": true,
+              "in_7": 4283477836,
+              "in_8": 4283585279,
+              "in_9": 2,
+              "in_10": true,
+              "in_11": 4278229247,
+              "in_12": 4278229247,
+              "in_13": 3,
+              "in_14": true,
+              "in_15": 4294926889,
+              "in_16": 4294926889,
+              "in_17": 4,
+              "in_18": 9,
+              "in_19": 30,
+              "in_20": false,
+              "in_21": 4286286080,
+              "in_22": 1,
+              "in_23": true,
+              "in_24": 4282117119,
+              "in_25": 1,
+              "in_26": true,
+              "in_27": 4283585279,
+              "in_28": 1,
+              "first_visible_bar_time": 1782479210000,
+              "last_visible_bar_time": 1782518390000,
+              "__fast_calc": false,
+              "__profile": false
+            },
+            "pine_id": "USER;c1bc6a004ab040cb94fc5453031d303f",
+            "pine_version": "36.0"
+          }
+        ],
+        "resolution": "10S"
+      }
+    ],
+    "symbol": "={\"adjustment\":\"dividends\",\"currency-id\":\"USD\",\"session\":\"extended\",\"symbol\":\"NASDAQ:QUBT\"}",
+    "resolution": "10S",
+    "message": "{{ticker}} crossed PDH ({{close}})",
+    "sound_file": "alert/chirpy",
+    "sound_duration": 5,
+    "popup": true,
+    "auto_deactivate": false,
+    "email": false,
+    "sms_over_email": true,
+    "mobile_push": true,
+    "web_hook": null,
+    "name": null,
+    "expiration": "2026-07-27T17:59:20.070Z",
+    "active": true,
+    "ignore_warnings": true
+  },
+  "pdl": {
+    "conditions": [
+      {
+        "type": "alert_cond",
+        "frequency": "on_first_fire",
+        "alert_cond_id": "plot_1",
+        "series": [
+          {
+            "type": "study",
+            "study": "Script@tv-scripting-101",
+            "offsets_by_plot": {},
+            "inputs": {
+              "pineFeatures": "{\"indicator\":1,\"plot\":1,\"str\":1,\"ta\":1,\"math\":1,\"alertcondition\":1,\"line\":1,\"label\":1,\"table\":1,\"request.security\":1,\"first_visible_time\":1,\"last_visible_time\":1}",
+              "in_0": 2,
+              "in_1": "small",
+              "in_2": 75,
+              "in_3": 4294967295,
+              "in_4": 14,
+              "in_5": false,
+              "in_6": true,
+              "in_7": 4283477836,
+              "in_8": 4283585279,
+              "in_9": 2,
+              "in_10": true,
+              "in_11": 4278229247,
+              "in_12": 4278229247,
+              "in_13": 3,
+              "in_14": true,
+              "in_15": 4294926889,
+              "in_16": 4294926889,
+              "in_17": 4,
+              "in_18": 9,
+              "in_19": 30,
+              "in_20": false,
+              "in_21": 4286286080,
+              "in_22": 1,
+              "in_23": true,
+              "in_24": 4282117119,
+              "in_25": 1,
+              "in_26": true,
+              "in_27": 4283585279,
+              "in_28": 1,
+              "first_visible_bar_time": 1782479210000,
+              "last_visible_bar_time": 1782518390000,
+              "__fast_calc": false,
+              "__profile": false
+            },
+            "pine_id": "USER;c1bc6a004ab040cb94fc5453031d303f",
+            "pine_version": "36.0"
+          }
+        ],
+        "resolution": "10S"
+      }
+    ],
+    "symbol": "={\"adjustment\":\"dividends\",\"currency-id\":\"USD\",\"session\":\"extended\",\"symbol\":\"NASDAQ:QUBT\"}",
+    "resolution": "10S",
+    "message": "{{ticker}} crossed PDL ({{close}})",
+    "sound_file": "alert/chirpy",
+    "sound_duration": 5,
+    "popup": true,
+    "auto_deactivate": false,
+    "email": false,
+    "sms_over_email": true,
+    "mobile_push": true,
+    "web_hook": null,
+    "name": null,
+    "expiration": "2026-07-27T17:59:32.327Z",
+    "active": true,
+    "ignore_warnings": true
+  },
+  "pwh": {
+    "conditions": [
+      {
+        "type": "alert_cond",
+        "frequency": "on_first_fire",
+        "alert_cond_id": "plot_2",
+        "series": [
+          {
+            "type": "study",
+            "study": "Script@tv-scripting-101",
+            "offsets_by_plot": {},
+            "inputs": {
+              "pineFeatures": "{\"indicator\":1,\"plot\":1,\"str\":1,\"ta\":1,\"math\":1,\"alertcondition\":1,\"line\":1,\"label\":1,\"table\":1,\"request.security\":1,\"first_visible_time\":1,\"last_visible_time\":1}",
+              "in_0": 2,
+              "in_1": "small",
+              "in_2": 75,
+              "in_3": 4294967295,
+              "in_4": 14,
+              "in_5": false,
+              "in_6": true,
+              "in_7": 4283477836,
+              "in_8": 4283585279,
+              "in_9": 2,
+              "in_10": true,
+              "in_11": 4278229247,
+              "in_12": 4278229247,
+              "in_13": 3,
+              "in_14": true,
+              "in_15": 4294926889,
+              "in_16": 4294926889,
+              "in_17": 4,
+              "in_18": 9,
+              "in_19": 30,
+              "in_20": false,
+              "in_21": 4286286080,
+              "in_22": 1,
+              "in_23": true,
+              "in_24": 4282117119,
+              "in_25": 1,
+              "in_26": true,
+              "in_27": 4283585279,
+              "in_28": 1,
+              "first_visible_bar_time": 1782479210000,
+              "last_visible_bar_time": 1782518390000,
+              "__fast_calc": false,
+              "__profile": false
+            },
+            "pine_id": "USER;c1bc6a004ab040cb94fc5453031d303f",
+            "pine_version": "36.0"
+          }
+        ],
+        "resolution": "10S"
+      }
+    ],
+    "symbol": "={\"adjustment\":\"dividends\",\"currency-id\":\"USD\",\"session\":\"extended\",\"symbol\":\"NASDAQ:QUBT\"}",
+    "resolution": "10S",
+    "message": "{{ticker}} crossed PWH ({{close}})",
+    "sound_file": "alert/chirpy",
+    "sound_duration": 5,
+    "popup": true,
+    "auto_deactivate": false,
+    "email": false,
+    "sms_over_email": true,
+    "mobile_push": true,
+    "web_hook": null,
+    "name": null,
+    "expiration": "2026-07-27T17:59:44.103Z",
+    "active": true,
+    "ignore_warnings": true
+  },
+  "pwl": {
+    "conditions": [
+      {
+        "type": "alert_cond",
+        "frequency": "on_first_fire",
+        "alert_cond_id": "plot_3",
+        "series": [
+          {
+            "type": "study",
+            "study": "Script@tv-scripting-101",
+            "offsets_by_plot": {},
+            "inputs": {
+              "pineFeatures": "{\"indicator\":1,\"plot\":1,\"str\":1,\"ta\":1,\"math\":1,\"alertcondition\":1,\"line\":1,\"label\":1,\"table\":1,\"request.security\":1,\"first_visible_time\":1,\"last_visible_time\":1}",
+              "in_0": 2,
+              "in_1": "small",
+              "in_2": 75,
+              "in_3": 4294967295,
+              "in_4": 14,
+              "in_5": false,
+              "in_6": true,
+              "in_7": 4283477836,
+              "in_8": 4283585279,
+              "in_9": 2,
+              "in_10": true,
+              "in_11": 4278229247,
+              "in_12": 4278229247,
+              "in_13": 3,
+              "in_14": true,
+              "in_15": 4294926889,
+              "in_16": 4294926889,
+              "in_17": 4,
+              "in_18": 9,
+              "in_19": 30,
+              "in_20": false,
+              "in_21": 4286286080,
+              "in_22": 1,
+              "in_23": true,
+              "in_24": 4282117119,
+              "in_25": 1,
+              "in_26": true,
+              "in_27": 4283585279,
+              "in_28": 1,
+              "first_visible_bar_time": 1782479210000,
+              "last_visible_bar_time": 1782518390000,
+              "__fast_calc": false,
+              "__profile": false
+            },
+            "pine_id": "USER;c1bc6a004ab040cb94fc5453031d303f",
+            "pine_version": "36.0"
+          }
+        ],
+        "resolution": "10S"
+      }
+    ],
+    "symbol": "={\"adjustment\":\"dividends\",\"currency-id\":\"USD\",\"session\":\"extended\",\"symbol\":\"NASDAQ:QUBT\"}",
+    "resolution": "10S",
+    "message": "{{ticker}} crossed PWL ({{close}})",
+    "sound_file": "alert/chirpy",
+    "sound_duration": 5,
+    "popup": true,
+    "auto_deactivate": false,
+    "email": false,
+    "sms_over_email": true,
+    "mobile_push": true,
+    "web_hook": null,
+    "name": null,
+    "expiration": "2026-07-27T18:02:52.265Z",
+    "active": true,
+    "ignore_warnings": true
+  },
+  "pmh": {
+    "conditions": [
+      {
+        "type": "alert_cond",
+        "frequency": "on_first_fire",
+        "alert_cond_id": "plot_4",
+        "series": [
+          {
+            "type": "study",
+            "study": "Script@tv-scripting-101",
+            "offsets_by_plot": {},
+            "inputs": {
+              "pineFeatures": "{\"indicator\":1,\"plot\":1,\"str\":1,\"ta\":1,\"math\":1,\"alertcondition\":1,\"line\":1,\"label\":1,\"table\":1,\"request.security\":1,\"first_visible_time\":1,\"last_visible_time\":1}",
+              "in_0": 2,
+              "in_1": "small",
+              "in_2": 75,
+              "in_3": 4294967295,
+              "in_4": 14,
+              "in_5": false,
+              "in_6": true,
+              "in_7": 4283477836,
+              "in_8": 4283585279,
+              "in_9": 2,
+              "in_10": true,
+              "in_11": 4278229247,
+              "in_12": 4278229247,
+              "in_13": 3,
+              "in_14": true,
+              "in_15": 4294926889,
+              "in_16": 4294926889,
+              "in_17": 4,
+              "in_18": 9,
+              "in_19": 30,
+              "in_20": false,
+              "in_21": 4286286080,
+              "in_22": 1,
+              "in_23": true,
+              "in_24": 4282117119,
+              "in_25": 1,
+              "in_26": true,
+              "in_27": 4283585279,
+              "in_28": 1,
+              "first_visible_bar_time": 1782479210000,
+              "last_visible_bar_time": 1782518390000,
+              "__fast_calc": false,
+              "__profile": false
+            },
+            "pine_id": "USER;c1bc6a004ab040cb94fc5453031d303f",
+            "pine_version": "36.0"
+          }
+        ],
+        "resolution": "10S"
+      }
+    ],
+    "symbol": "={\"adjustment\":\"dividends\",\"currency-id\":\"USD\",\"session\":\"extended\",\"symbol\":\"NASDAQ:QUBT\"}",
+    "resolution": "10S",
+    "message": "{{ticker}} crossed PMH ({{close}})",
+    "sound_file": "alert/chirpy",
+    "sound_duration": 5,
+    "popup": true,
+    "auto_deactivate": false,
+    "email": false,
+    "sms_over_email": true,
+    "mobile_push": true,
+    "web_hook": null,
+    "name": null,
+    "expiration": "2026-07-27T18:03:29.219Z",
+    "active": true,
+    "ignore_warnings": true
+  },
+  "pml": {
+    "conditions": [
+      {
+        "type": "alert_cond",
+        "frequency": "on_first_fire",
+        "alert_cond_id": "plot_5",
+        "series": [
+          {
+            "type": "study",
+            "study": "Script@tv-scripting-101",
+            "offsets_by_plot": {},
+            "inputs": {
+              "pineFeatures": "{\"indicator\":1,\"plot\":1,\"str\":1,\"ta\":1,\"math\":1,\"alertcondition\":1,\"line\":1,\"label\":1,\"table\":1,\"request.security\":1,\"first_visible_time\":1,\"last_visible_time\":1}",
+              "in_0": 2,
+              "in_1": "small",
+              "in_2": 75,
+              "in_3": 4294967295,
+              "in_4": 14,
+              "in_5": false,
+              "in_6": true,
+              "in_7": 4283477836,
+              "in_8": 4283585279,
+              "in_9": 2,
+              "in_10": true,
+              "in_11": 4278229247,
+              "in_12": 4278229247,
+              "in_13": 3,
+              "in_14": true,
+              "in_15": 4294926889,
+              "in_16": 4294926889,
+              "in_17": 4,
+              "in_18": 9,
+              "in_19": 30,
+              "in_20": false,
+              "in_21": 4286286080,
+              "in_22": 1,
+              "in_23": true,
+              "in_24": 4282117119,
+              "in_25": 1,
+              "in_26": true,
+              "in_27": 4283585279,
+              "in_28": 1,
+              "first_visible_bar_time": 1782479210000,
+              "last_visible_bar_time": 1782518390000,
+              "__fast_calc": false,
+              "__profile": false
+            },
+            "pine_id": "USER;c1bc6a004ab040cb94fc5453031d303f",
+            "pine_version": "36.0"
+          }
+        ],
+        "resolution": "10S"
+      }
+    ],
+    "symbol": "={\"adjustment\":\"dividends\",\"currency-id\":\"USD\",\"session\":\"extended\",\"symbol\":\"NASDAQ:QUBT\"}",
+    "resolution": "10S",
+    "message": "{{ticker}} crossed PML ({{close}})",
+    "sound_file": "alert/chirpy",
+    "sound_duration": 5,
+    "popup": true,
+    "auto_deactivate": false,
+    "email": false,
+    "sms_over_email": true,
+    "mobile_push": true,
+    "web_hook": null,
+    "name": null,
+    "expiration": "2026-07-27T18:04:15.485Z",
+    "active": true,
+    "ignore_warnings": true
+  },
+  "buyers_trapped": {
+    "conditions": [
+      {
+        "type": "alert_cond",
+        "frequency": "on_first_fire",
+        "alert_cond_id": "plot_8",
+        "series": [
+          {
+            "type": "study",
+            "study": "Script@tv-scripting-101",
+            "offsets_by_plot": {
+              "plot_0": 0,
+              "plot_2": 0,
+              "plot_4": 0,
+              "plot_6": 0
+            },
+            "inputs": {
+              "pineFeatures": "{\"indicator\":1,\"plot\":1,\"str\":1,\"array\":1,\"ta\":1,\"math\":1,\"alertcondition\":1,\"line\":1,\"label\":1,\"request.footprint\":1,\"builtin_methods\":1}",
+              "in_0": true,
+              "in_1": 1,
+              "in_2": false,
+              "in_3": 10,
+              "in_4": 2,
+              "in_5": "Dashed",
+              "in_6": true,
+              "in_7": 30,
+              "in_8": 0.02,
+              "__chart_fgcolor": 4292598747,
+              "__fast_calc": false,
+              "__profile": false
+            },
+            "pine_id": "USER;44900fec75c14a6d87ce8231895d27bd",
+            "pine_version": "14.0"
+          }
+        ],
+        "resolution": "10S"
+      }
+    ],
+    "symbol": "={\"adjustment\":\"dividends\",\"currency-id\":\"USD\",\"session\":\"extended\",\"symbol\":\"NASDAQ:QUBT\"}",
+    "resolution": "10S",
+    "message": "Buyers Trapped — {{ticker}} price {{close}}",
+    "sound_file": "alert/chirpy",
+    "sound_duration": 5,
+    "popup": true,
+    "auto_deactivate": false,
+    "email": false,
+    "sms_over_email": true,
+    "mobile_push": true,
+    "web_hook": null,
+    "name": null,
+    "expiration": "2026-07-27T18:04:30.018Z",
+    "active": true,
+    "ignore_warnings": true
+  },
+  "sellers_trapped": {
+    "conditions": [
+      {
+        "type": "alert_cond",
+        "frequency": "on_first_fire",
+        "alert_cond_id": "plot_9",
+        "series": [
+          {
+            "type": "study",
+            "study": "Script@tv-scripting-101",
+            "offsets_by_plot": {
+              "plot_0": 0,
+              "plot_2": 0,
+              "plot_4": 0,
+              "plot_6": 0
+            },
+            "inputs": {
+              "pineFeatures": "{\"indicator\":1,\"plot\":1,\"str\":1,\"array\":1,\"ta\":1,\"math\":1,\"alertcondition\":1,\"line\":1,\"label\":1,\"request.footprint\":1,\"builtin_methods\":1}",
+              "in_0": true,
+              "in_1": 1,
+              "in_2": false,
+              "in_3": 10,
+              "in_4": 2,
+              "in_5": "Dashed",
+              "in_6": true,
+              "in_7": 30,
+              "in_8": 0.02,
+              "__chart_fgcolor": 4292598747,
+              "__fast_calc": false,
+              "__profile": false
+            },
+            "pine_id": "USER;44900fec75c14a6d87ce8231895d27bd",
+            "pine_version": "14.0"
+          }
+        ],
+        "resolution": "10S"
+      }
+    ],
+    "symbol": "={\"adjustment\":\"dividends\",\"currency-id\":\"USD\",\"session\":\"extended\",\"symbol\":\"NASDAQ:QUBT\"}",
+    "resolution": "10S",
+    "message": "Sellers Trapped — {{ticker}} price {{close}}",
+    "sound_file": "alert/chirpy",
+    "sound_duration": 5,
+    "popup": true,
+    "auto_deactivate": false,
+    "email": false,
+    "sms_over_email": true,
+    "mobile_push": true,
+    "web_hook": null,
+    "name": null,
+    "expiration": "2026-07-27T18:04:37.062Z",
+    "active": true,
+    "ignore_warnings": true
+  },
+  "ema": {
+    "conditions": [
+      {
+        "type": "cross_down",
+        "frequency": "on_first_fire",
+        "series": [
+          {
+            "type": "barset"
+          },
+          {
+            "type": "study",
+            "study": "Script@tv-scripting-101",
+            "plot_id": "plot_0",
+            "offsets_by_plot": {
+              "plot_0": 0,
+              "plot_1": 0
+            },
+            "inputs": {
+              "pineFeatures": "{\"indicator\":1,\"plot\":1,\"ta\":1}",
+              "in_0": 89,
+              "in_1": "close",
+              "in_2": 0,
+              "in_3": "SMA",
+              "in_4": 5,
+              "in_5": "",
+              "in_6": true,
+              "__profile": false
+            },
+            "pine_id": "STD;EMA",
+            "pine_version": "30.0"
+          }
+        ],
+        "resolution": "10S"
+      }
+    ],
+    "symbol": "={\"adjustment\":\"dividends\",\"currency-id\":\"USD\",\"session\":\"extended\",\"symbol\":\"NASDAQ:QUBT\"}",
+    "resolution": "10S",
+    "message": "QUBT, 10s Crossing Down Moving Average Exponential (89, close)",
+    "sound_file": "alert/chirpy",
+    "sound_duration": 5,
+    "popup": true,
+    "auto_deactivate": false,
+    "email": false,
+    "sms_over_email": true,
+    "mobile_push": true,
+    "web_hook": null,
+    "name": null,
+    "expiration": "2026-07-27T18:06:35.512Z",
+    "active": true,
+    "ignore_warnings": true
+  }
+}

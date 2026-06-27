@@ -34,5 +34,21 @@ register('alert', {
         delete_all: opts.all,
       }),
     }],
+    ['disable', {
+      description: 'Pause alerts by id (--ids 1,2,3)',
+      options: { ids: { type: 'string', description: 'Comma-separated alert IDs to pause' } },
+      handler: (opts) => core.setAlertsActive({
+        alert_ids: opts.ids ? opts.ids.split(',').map((s) => Number(s.trim())) : [],
+        active: false,
+      }),
+    }],
+    ['enable', {
+      description: 'Re-enable paused alerts by id (--ids 1,2,3)',
+      options: { ids: { type: 'string', description: 'Comma-separated alert IDs to re-enable' } },
+      handler: (opts) => core.setAlertsActive({
+        alert_ids: opts.ids ? opts.ids.split(',').map((s) => Number(s.trim())) : [],
+        active: true,
+      }),
+    }],
   ]),
 });
