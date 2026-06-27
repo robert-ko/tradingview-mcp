@@ -95,10 +95,20 @@ TradingView Desktop must be running with Chrome DevTools Protocol enabled on por
 ./scripts/launch_tv_debug_mac.sh
 ```
 
-**Windows:**
+**Windows (MSIX / Microsoft Store install — most common):**
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\launch_msix_debug.ps1
+```
+
+**Windows (classic / non-Store install):**
 ```bash
 scripts\launch_tv_debug.bat
 ```
+
+> **WSL2 users:** reaching Windows CDP from WSL2 needs a portproxy (NAT) or shared
+> loopback (mirrored networking). `launch_msix_debug.ps1` sets this up and auto-detects
+> the mode. If `tv status` ever returns `fetch failed`, see
+> [docs/WINDOWS_WSL2_SETUP.md](docs/WINDOWS_WSL2_SETUP.md).
 
 **Linux:**
 ```bash
@@ -139,10 +149,16 @@ Ask Claude: *"Use tv_health_check to verify TradingView is connected"*
 Every MCP tool is also accessible as a `tv` CLI command. All output is JSON for piping with `jq`.
 
 ```bash
-# Install globally (optional)
+# Quickest — source the env script (works in WSL2 / Linux / macOS):
+source scripts/setup_env.sh
+
+# To make the alias permanent, add to ~/.bashrc:
+echo "source $(pwd)/scripts/setup_env.sh" >> ~/.bashrc
+
+# Or install globally (requires write access to npm prefix):
 npm link
 
-# Or run directly
+# Or run directly without any setup:
 node src/cli/index.js <command>
 ```
 
@@ -197,6 +213,12 @@ tv stream lines --filter "NY Levels"     # price level monitoring
 tv stream tables --filter Profiler       # table data monitoring
 tv stream all                            # all panes at once (multi-symbol)
 ```
+
+## For AI agents working in this repo
+
+- [`CLAUDE.md`](CLAUDE.md) is auto-loaded and contains the tool decision tree plus an **"Agent Memory & Local Automation"** section.
+- **Persistent cross-session memory** (Claude Code) lives at `~/.claude/projects/-mnt-c-Users-Robert-Dropbox-Projects-tradingview-mcp/memory/` — read `MEMORY.md` there first (index of setup/automation notes).
+- **Local automation** is in `scripts/` (e.g. `plot_today_trades.mjs` + `afterhours_plot.sh`, cron `0 16 * * 1-5`); run log at `logs/afterhours_plot.log`.
 
 ## How Claude Knows Which Tool to Use
 
@@ -301,7 +323,7 @@ Read `line.new()`, `label.new()`, `table.new()`, `box.new()` output from any vis
 |------|-------------|
 | `draw_shape` | Draw horizontal_line, trend_line, rectangle, text |
 | `draw_list` / `draw_remove_one` / `draw_clear` | Manage drawings |
-| `alert_create` / `alert_list` / `alert_delete` | Manage price alerts |
+| `alert_create` / `alert_list` / `alert_delete` | Manage price alerts (`alert_delete` supports `alert_ids`, `delete_inactive`, `delete_all`; CLI: `tv alert delete --inactive`) |
 | `capture_screenshot` | Screenshot (regions: full, chart, strategy_tester) |
 | `batch_run` | Run action across multiple symbols/timeframes |
 | `watchlist_get` / `watchlist_add` | Read/modify watchlist |

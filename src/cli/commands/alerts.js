@@ -22,11 +22,17 @@ register('alert', {
       }),
     }],
     ['delete', {
-      description: 'Delete alerts',
+      description: 'Delete alerts (--ids 1,2,3 | --inactive | --all)',
       options: {
-        all: { type: 'boolean', description: 'Delete all alerts' },
+        ids: { type: 'string', description: 'Comma-separated alert IDs to delete' },
+        inactive: { type: 'boolean', description: 'Delete all inactive (triggered/disabled) alerts, keep active' },
+        all: { type: 'boolean', description: 'Delete ALL alerts (active included)' },
       },
-      handler: (opts) => core.deleteAlerts({ delete_all: opts.all }),
+      handler: (opts) => core.deleteAlerts({
+        alert_ids: opts.ids ? opts.ids.split(',').map((s) => Number(s.trim())) : undefined,
+        delete_inactive: opts.inactive,
+        delete_all: opts.all,
+      }),
     }],
   ]),
 });

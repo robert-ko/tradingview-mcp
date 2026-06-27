@@ -103,21 +103,53 @@ export async function list() {
   return { success: true, alert_count: result?.alerts?.length || 0, source: 'internal_api', alerts: result?.alerts || [], error: result?.error };
 }
 
-export async function deleteAlerts({ delete_all }) {
-  if (delete_all) {
-    const result = await evaluate(`
-      (function() {
-        var alertBtn = document.querySelector('[data-name="alerts"]');
-        if (alertBtn) alertBtn.click();
-        var header = document.querySelector('[data-name="alerts"]');
-        if (header) {
-          header.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 100, clientY: 100 }));
-          return { context_menu_opened: true };
-        }
-        return { context_menu_opened: false };
-      })()
-    `);
-    return { success: true, note: 'Alert deletion requires manual confirmation in the context menu.', context_menu_opened: result?.context_menu_opened || false, source: 'dom_fallback' };
+const DELETE_URL = 'https://pricealerts.tradingview.com/delete_alerts';
+
+// Delete a batch of alert ids via the pricealerts REST API (the same call the TV web UI
+// makes). IMPORTANT: the body is JSON but we must NOT set a Content-Type header — a JSON
+// content-type triggers a cross-origin CORS preflight (chart page -> pricealerts subdomain)
+// that the endpoint rejects ("Failed to fetch"). Omitting it sends text/plain, a CORS
+// "simple request" (no preflight). Body shape is {"payload":{"alert_ids":[...]}}.
+async function deleteIdBatch(ids) {
+  return evaluateAsync(`
+    fetch(${safeString(DELETE_URL)}, {
+      method: 'POST', credentials: 'include',
+      body: JSON.stringify({ payload: { alert_ids: ${JSON.stringify(ids)} } })
+    })
+      .then(function(r) { return r.json(); })
+      .then(function(j) { return (j && j.s) || 'no_status'; })
+      .catch(function(e) { return 'fetch_error:' + e.message; })
+  `);
+}
+
+/**
+ * Delete alerts. Provide one of:
+ *   alert_ids: [id, ...]   — delete specific alerts
+ *   delete_inactive: true  — delete all inactive (triggered/disabled) alerts, keep active
+ *   delete_all: true       — delete ALL alerts (active included)
+ * Deletes in chunks of 100 and returns { success, deleted }.
+ */
+export async function deleteAlerts({ alert_ids, delete_inactive, delete_all } = {}) {
+  let ids;
+  if (Array.isArray(alert_ids) && alert_ids.length) {
+    ids = alert_ids.map(Number).filter(Number.isFinite);
+  } else if (delete_inactive || delete_all) {
+    const { alerts } = await list();
+    ids = alerts.filter(a => (delete_all ? true : !a.active)).map(a => a.alert_id);
+  } else {
+    throw new Error('Specify alert_ids: [...], delete_inactive: true, or delete_all: true');
   }
-  throw new Error('Individual alert deletion not yet supported. Use delete_all: true.');
+  if (ids.length === 0) return { success: true, deleted: 0, note: 'no matching alerts to delete' };
+
+  const CHUNK = 100;
+  let deleted = 0;
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    const batch = ids.slice(i, i + CHUNK);
+    const status = await deleteIdBatch(batch);
+    if (status !== 'ok') {
+      return { success: false, deleted, error: `delete_alerts returned "${status}" after ${deleted} deleted`, source: 'pricealerts_api' };
+    }
+    deleted += batch.length;
+  }
+  return { success: true, deleted, source: 'pricealerts_api' };
 }

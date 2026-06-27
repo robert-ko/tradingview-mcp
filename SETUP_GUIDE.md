@@ -45,10 +45,19 @@ Mac:
 /Applications/TradingView.app/Contents/MacOS/TradingView --remote-debugging-port=9222
 ```
 
-Windows:
+Windows — **MSIX / Microsoft Store install** (most common; the `.exe` lives in the
+locked `WindowsApps` folder and cannot be launched with arguments directly):
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\launch_msix_debug.ps1
+```
+Windows — classic / non-Store install:
 ```bash
 %LOCALAPPDATA%\TradingView\TradingView.exe --remote-debugging-port=9222
 ```
+> **Running from WSL2?** The CLI/MCP server reaches Windows CDP over a portproxy (NAT)
+> or shared loopback (mirrored networking). `launch_msix_debug.ps1` configures this for
+> you. See [docs/WINDOWS_WSL2_SETUP.md](docs/WINDOWS_WSL2_SETUP.md) for details and the
+> common `"fetch failed"` fixes.
 
 Linux:
 ```bash
@@ -95,6 +104,8 @@ Then `tv status`, `tv quote`, `tv pine compile`, etc. work from anywhere.
 | Problem | Solution |
 |---------|----------|
 | `cdp_connected: false` | Launch TradingView with `--remote-debugging-port=9222` |
+| `fetch failed` from WSL2, but TradingView *is* running with the flag | WSL2 portproxy bound to `0.0.0.0` is shadowing loopback so CDP never bound (or no proxy at all). Re-run `scripts\launch_msix_debug.ps1`. See [docs/WINDOWS_WSL2_SETUP.md](docs/WINDOWS_WSL2_SETUP.md). |
+| TradingView "looks like" it's in debug mode but no CDP | MSIX install launched via `explorer shell:` / `ELECTRON_EXTRA_LAUNCH_ARGS` (flag not passed). Use `scripts\launch_msix_debug.ps1`. |
 | `ECONNREFUSED` | TradingView isn't running or port 9222 is blocked |
 | MCP server not showing in Claude Code | Check `~/.claude/.mcp.json` syntax, restart Claude Code |
 | `tv` command not found | Run `npm link` from the project directory |

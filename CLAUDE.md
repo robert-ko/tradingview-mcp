@@ -2,12 +2,48 @@
 
 68 tools for reading and controlling a live TradingView Desktop chart via CDP (port 9222).
 
+## CLI Quick Reference (`tv` command)
+
+The `tv` CLI mirrors the MCP tools for direct terminal use.
+
+**Setup** (WSL2 / Linux — `npm link` requires sudo):
+```bash
+source scripts/setup_env.sh        # set alias for current shell
+# or permanently:
+echo "source $(pwd)/scripts/setup_env.sh" >> ~/.bashrc
+```
+
+### Inspect all windows/tabs
+```bash
+tv tab windows          # JSON: all windows, tabs, panes, symbols
+tv tab windows --table  # Human-readable aligned table (-t short flag)
+```
+
+### Query any pane on any tab without switching focus
+All data commands accept `--chart <layout_id>` and `--pane <index>` flags:
+```bash
+tv quote --chart OrGYLj5W --pane 0        # price of pane 0 on tab OrGYLj5W
+tv quote IBIT --chart OrGYLj5W --pane 1   # override symbol on specific pane
+tv data lines --chart OrGYLj5W --pane 2   # Pine lines from background tab
+tv data labels --chart OrGYLj5W           # labels from any tab, active pane
+```
+Chart layout IDs come from `tv tab list` or `tv tab windows` output.
+
+### Tab management
+```bash
+tv tab list             # list open chart tabs with IDs
+tv tab switch 2         # switch to tab by index
+tv tab new              # open new tab (Ctrl+T)
+tv tab close            # close current tab (Ctrl+W)
+```
+
 ## Decision Tree — Which Tool When
 
 ### "What's on my chart right now?"
 1. `chart_get_state` → symbol, timeframe, chart type, list of all indicators with entity IDs
 2. `data_get_study_values` → current numeric values from all visible indicators (RSI, MACD, BBands, EMAs, etc.)
 3. `quote_get` → real-time price, OHLC, volume for current symbol
+4. `tab_windows` → all open windows/tabs with pane symbols (use when multiple charts are open)
 
 ### "What levels/lines/labels are showing?"
 Custom Pine indicators draw with `line.new()`, `label.new()`, `table.new()`, `box.new()`. These are invisible to normal data tools. Use:
@@ -18,6 +54,8 @@ Custom Pine indicators draw with `line.new()`, `label.new()`, `table.new()`, `bo
 4. `data_get_pine_boxes` → price zones / ranges as {high, low} pairs
 
 Use `study_filter` parameter to target a specific indicator by name substring (e.g., `study_filter: "Profiler"`).
+
+All four tools accept optional `chart_id` and `pane_index` to query a **background tab** without switching focus.
 
 ### "Give me price data"
 - `data_get_ohlcv` with `summary: true` → compact stats (high, low, range, change%, avg volume, last 5 bars)
@@ -70,8 +108,8 @@ Use `study_filter` parameter to target a specific indicator by name substring (e
 
 ### "Manage alerts"
 - `alert_create` → set price alert (condition: "crossing", "greater_than", "less_than")
-- `alert_list` → view active alerts
-- `alert_delete` → remove alerts
+- `alert_list` → view all alerts (each has `active` true/false; inactive = triggered/disabled)
+- `alert_delete` → remove alerts: `alert_ids: [...]` (specific), `delete_inactive: true` (clear triggered/disabled, keep active), or `delete_all: true`. Deletes via the pricealerts REST API in chunks of 100. CLI: `tv alert delete --ids 1,2,3` / `--inactive` / `--all`.
 
 ### "Navigate the UI"
 - `ui_open_panel` → open/close pine-editor, strategy-tester, watchlist, alerts, trading
@@ -126,4 +164,20 @@ These tools can return large payloads. Follow these rules to avoid context bloat
 Claude Code ←→ MCP Server (stdio) ←→ CDP (localhost:9222) ←→ TradingView Desktop (Electron)
 ```
 
+**WSL2 note**: `connection.js` auto-detects the right host when running inside WSL2 (`WSL_DISTRO_NAME` is set): it probes loopback first (works under **mirrored networking**, which shares `127.0.0.1` with Windows) and falls back to the Windows gateway IP from `ip route show default` (**NAT networking**). Set `CDP_HOST` to override. For **NAT mode** a Windows `netsh interface portproxy` must forward `<WSL-adapter-IP>:9222 -> 127.0.0.1:9222` — bound to the **specific WSL adapter IP, never `0.0.0.0`** (a `0.0.0.0` bind shadows/overlaps Electron's loopback and CDP silently fails → `fetch failed`).
+
+**Launching on Windows**: TradingView is usually an **MSIX/Store install** (locked `WindowsApps` path) — launch it with `scripts/launch_msix_debug.ps1` (COM `IApplicationActivationManager`; the `.bat` and `explorer shell:`/`ELECTRON_EXTRA_LAUNCH_ARGS` tricks can't reliably pass `--remote-debugging-port`). The `.ps1` auto-detects NAT vs mirrored and sets up the proxy correctly. Full runbook + failure modes: `docs/WINDOWS_WSL2_SETUP.md`.
+
+**Multi-tab / multi-pane access**: `evaluateInTarget(targetId, expr)` opens a fresh CDP connection to any renderer target, evaluates JS, and closes — enabling reads from background tabs without switching focus. `resolveRenderer(chartId)` finds the live renderer for a given layout ID. Pane-specific reads use `window.TradingViewApi._chartWidgetCollection.getAll()[paneIndex]` instead of `_activeChartWidgetWV`.
+
 Pine graphics path: `study._graphics._primitivesCollection.dwglines.get('lines').get(false)._primitivesDataById`
+
+## Agent Memory & Local Automation
+
+**Persistent cross-session memory** (Claude Code auto-loads its index each session, but the full notes are worth reading when working on setup/automation):
+`/home/robert/.claude/projects/-mnt-c-Users-Robert-Dropbox-Projects-tradingview-mcp/memory/` — start at `MEMORY.md` (the index). Covers: WSL2/MSIX CDP launch & portproxy fixes, placing trade-plotter indicators on specific panes (incl. the `Ctrl+K Ctrl+I` editor-unbind trick), and the after-market plot cron.
+
+**Local automation** (lives in `scripts/`, environment-specific, not core app code):
+- `scripts/plot_today_trades.mjs` + `scripts/afterhours_plot.sh` — after-market job: runs the trade_plotter generator, then plots today's indicators onto the matching chart panes (add-to-chart, no cloud save). Cron: `0 16 * * 1-5` (16:00 CDT). **Run log: `logs/afterhours_plot.log`** (gitignored).
+- `scripts/launch_msix_debug.ps1` — launch the MSIX TradingView build with CDP; see `docs/WINDOWS_WSL2_SETUP.md`.
+- A Windows logon task keeps WSL running so the cron fires (`scripts/keep_wsl_alive.vbs`).
