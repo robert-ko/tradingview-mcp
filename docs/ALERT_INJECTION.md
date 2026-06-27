@@ -170,3 +170,19 @@ Each entry has `symbols: ["EXCHANGE:SYM", …]` and ONE condition:
 `expiration_days`. Templates live in `scripts/alert_templates.json` (captured via `alert_inject.mjs`);
 re-capture + re-run `_tmp_save_templates` style extraction to refresh/add indicators.
 See `scripts/alerts.example.json`.
+
+## Round-trip export + declarative sync — `scripts/alerts_sync.py`
+```bash
+python scripts/alerts_sync.py export alerts_config.json          # live alerts -> editable config
+#   ...hand-edit alerts_config.json (change params, add/remove symbols or entries)...
+python scripts/alerts_sync.py apply  alerts_config.json --dry-run # preview the diff
+python scripts/alerts_sync.py apply  alerts_config.json           # make live match the config
+```
+`export` classifies each live alert into a batch_alerts entry (`template`/`ema_cross`/
+`ema_cross_ema`/`vwap_cross`/`price_cross_value`/`raw`). `apply` re-probes live alerts and
+diffs by a **content fingerprint** (symbol + condition kind/params + resolution + message) —
+NOT by `id` (which is informational). Unchanged → untouched; edited param/message → old
+deleted + new created; new entry/symbol → created; removed entry → deleted. `{sym}` in a
+message expands to the ticker per symbol. `scripts/export_alerts.py` is a simpler read-only
+audit dump (no round-trip). Snapshot outputs (`alerts_config.json`, `alerts_export.json`)
+are gitignored.

@@ -200,8 +200,15 @@ def build(entry, symbol, defaults):
         cond["type"] = CROSS_TYPE.get(pc.get("direction", "cross"), "cross")
         cond["series"] = [dict(BARSET), {"type": "value", "value": value}]
         p["message"] = opts.get("message", f"{short}, price {verb_of(cond['type'])} {value}").replace("{sym}", short)
+    elif "raw" in entry:
+        # round-trip fallback: a condition object captured verbatim (from export_alerts/alerts_sync)
+        p = _skeleton()
+        p["conditions"] = [copy.deepcopy(entry["raw"])]
+        if "message" in opts:
+            p["message"] = opts["message"].replace("{sym}", short)
     else:
-        raise ValueError("alert entry needs one of: template, ema_cross, ema_cross_ema, vwap_cross, price_cross_value")
+        raise ValueError("alert entry needs one of: template, ema_cross, ema_cross_ema, "
+                         "vwap_cross, price_cross_value, raw")
 
     p["symbol"] = symbol_descriptor(symbol)
     p["name"] = None
