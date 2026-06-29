@@ -26,11 +26,12 @@ export function registerAlertTools(server) {
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });
 
-  server.tool('alert_set_active', 'Pause (active=false) or re-enable (active=true) existing alerts by id', {
-    alert_ids: z.array(z.coerce.number()).describe('Alert IDs to pause/re-enable'),
+  server.tool('alert_set_active', 'Pause (active=false) or re-enable (active=true) alerts — by id or all', {
+    alert_ids: z.array(z.coerce.number()).optional().describe('Alert IDs to pause/re-enable'),
+    all: z.coerce.boolean().optional().describe('Target every alert in the relevant state (disable→all active, enable→all inactive)'),
     active: z.coerce.boolean().describe('true = re-enable (restart), false = pause (stop)'),
-  }, async ({ alert_ids, active }) => {
-    try { return jsonResult(await core.setAlertsActive({ alert_ids, active })); }
+  }, async ({ alert_ids, all, active }) => {
+    try { return jsonResult(await core.setAlertsActive({ alert_ids, all, active })); }
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });
 }

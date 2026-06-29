@@ -158,12 +158,23 @@ const STOP_URL = 'https://pricealerts.tradingview.com/stop_alerts';
 const RESTART_URL = 'https://pricealerts.tradingview.com/restart_alerts';
 
 /**
- * Pause (active=false → stop_alerts) or re-enable (active=true → restart_alerts) alerts
- * by id. Same pricealerts API + no-Content-Type trick as deleteAlerts. Chunks of 100.
+ * Pause (active=false → stop_alerts) or re-enable (active=true → restart_alerts) alerts.
+ * Provide `alert_ids: [...]`, or `all: true` to target every alert in the relevant state
+ * (disable → all currently-active; enable → all currently-inactive). Same pricealerts API
+ * + no-Content-Type trick as deleteAlerts. Chunks of 100.
  */
-export async function setAlertsActive({ alert_ids, active } = {}) {
-  if (!Array.isArray(alert_ids) || alert_ids.length === 0) throw new Error('alert_ids: [...] required');
-  const ids = alert_ids.map(Number).filter(Number.isFinite);
+export async function setAlertsActive({ alert_ids, active, all } = {}) {
+  let ids;
+  if (all) {
+    const { alerts } = await list();
+    // disable → only the ones currently active; enable → only the ones currently inactive
+    ids = alerts.filter(a => (active ? !a.active : a.active)).map(a => a.alert_id);
+  } else if (Array.isArray(alert_ids) && alert_ids.length) {
+    ids = alert_ids.map(Number).filter(Number.isFinite);
+  } else {
+    throw new Error('Provide alert_ids: [...] or all: true');
+  }
+  if (ids.length === 0) return { success: true, changed: 0, active, note: 'no alerts to change', source: 'pricealerts_api' };
   const url = active ? RESTART_URL : STOP_URL;
   const CHUNK = 100;
   let changed = 0;

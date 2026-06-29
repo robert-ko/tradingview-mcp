@@ -35,18 +35,26 @@ register('alert', {
       }),
     }],
     ['disable', {
-      description: 'Pause alerts by id (--ids 1,2,3)',
-      options: { ids: { type: 'string', description: 'Comma-separated alert IDs to pause' } },
+      description: 'Pause alerts (--ids 1,2,3 | --all to pause every active alert)',
+      options: {
+        ids: { type: 'string', description: 'Comma-separated alert IDs to pause' },
+        all: { type: 'boolean', description: 'Pause all currently-active alerts' },
+      },
       handler: (opts) => core.setAlertsActive({
         alert_ids: opts.ids ? opts.ids.split(',').map((s) => Number(s.trim())) : [],
+        all: opts.all,
         active: false,
       }),
     }],
     ['enable', {
-      description: 'Re-enable paused alerts by id (--ids 1,2,3)',
-      options: { ids: { type: 'string', description: 'Comma-separated alert IDs to re-enable' } },
+      description: 'Re-enable alerts (--ids 1,2,3 | --all to re-enable every paused alert)',
+      options: {
+        ids: { type: 'string', description: 'Comma-separated alert IDs to re-enable' },
+        all: { type: 'boolean', description: 'Re-enable all currently-inactive alerts' },
+      },
       handler: (opts) => core.setAlertsActive({
         alert_ids: opts.ids ? opts.ids.split(',').map((s) => Number(s.trim())) : [],
+        all: opts.all,
         active: true,
       }),
     }],
