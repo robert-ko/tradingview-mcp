@@ -6,11 +6,18 @@
 
 The `tv` CLI mirrors the MCP tools for direct terminal use.
 
+**Prerequisites to run ANY `tv` command:**
+1. **Node.js 18+** (the CLI is Node/ESM).
+2. **TradingView Desktop running with `--remote-debugging-port=9222`** and CDP reachable, or every command returns `fetch failed`. `connection.js` auto-resolves the host (WSL2 gateway/mirrored loopback); override with `CDP_HOST`. See [Windows/WSL2 setup](docs/WINDOWS_WSL2_SETUP.md).
+3. **`tv` must resolve** — it's either an `npm link` global binary OR a shell alias from `source scripts/setup_env.sh`. For scripts/agents, calling `node src/cli/index.js <args>` directly is most reliable (no alias/PATH assumptions; note shell state does NOT persist between separate shell invocations, so `source … && tv …` must be one command).
+
 **Setup** (WSL2 / Linux — `npm link` requires sudo):
 ```bash
-source scripts/setup_env.sh        # set alias for current shell
+source scripts/setup_env.sh        # set `tv` alias for current shell
 # or permanently:
 echo "source $(pwd)/scripts/setup_env.sh" >> ~/.bashrc
+# or, no alias needed:
+node src/cli/index.js status       # equivalent to `tv status`
 ```
 
 ### Inspect all windows/tabs
