@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TradingView Alert Dashboard</title>
+<style>
+  :root { --bg:#0e1116; --panel:#191e26; --line:#333a47; --fg:#ffe000; --muted:#9fa892;
+          --on:#25c368; --off:#e0555b; --mix:#e0b13c; --accent:#5a9bff; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:13px/1.4 ui-sans-serif,system-ui,Segoe UI,Roboto,sans-serif; }
+  header { display:flex; gap:8px; align-items:center; flex-wrap:wrap; padding:10px 14px; background:var(--panel); border-bottom:1px solid var(--line); position:sticky; top:0; z-index:5; }
+  header h1 { font-size:15px; margin:0 12px 0 0; }
+  button { background:#222834; color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:5px 10px; cursor:pointer; font-size:12px; }
+  button:hover { border-color:var(--accent); }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .muted { color:var(--muted); }
+  main { padding:14px; display:grid; gap:18px; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:12px; }
+  .panel h2 { font-size:13px; margin:0 0 10px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; }
+  table { border-collapse:collapse; }
+  th, td { border:1px solid var(--line); padding:4px 6px; text-align:center; white-space:nowrap; }
+  th.sym { text-align:right; }
+  th.col { vertical-align:bottom; font-weight:600; max-width:96px; white-space:normal; line-height:1.15; }
+  #matrix { overflow-x:auto; }
+  .cell { cursor:pointer; min-width:38px; font-variant-numeric:tabular-nums; }
+  .on { background:rgba(37,195,104,.30); } .off { background:rgba(224,85,91,.24); } .mix { background:rgba(224,177,60,.30); }
+  .cell.add { color:#6b7688; font-weight:600; } .cell.add:hover { color:var(--accent); background:rgba(90,155,255,.14); }
+  tr.grptop > th, tr.grptop > td { border-top:3px solid #59647d; }
+  tr.tabhdr td { text-align:left; background:#141922; border-left:none; border-right:none; padding:6px 8px; }
+  tr.tabhdr button { padding:2px 8px; margin-left:4px; }
+  th.clickable { cursor:pointer; } th.clickable:hover { color:var(--accent); }
+  .tabs { display:flex; gap:8px; flex-wrap:wrap; }
+  .tab { border:1px solid var(--line); border-radius:6px; padding:6px 8px; }
+  .tab b { display:block; margin-bottom:4px; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  input, select { background:#0f131a; color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:5px 7px; font-size:12px; }
+  #fired, #wh { max-height:300px; overflow:auto; font-family:ui-monospace,monospace; font-size:11px; }
+  #fired div, #wh div { padding:3px 0; border-bottom:1px solid var(--line); }
+  #fired b { color:var(--fg); }
+  #status { margin-left:auto; }
+  #busy { display:none; }
+  body.busy #busy { display:inline-flex; align-items:center; gap:5px; color:var(--accent); }
+  .spinner { width:13px; height:13px; border:2px solid var(--line); border-top-color:var(--accent); border-radius:50%; display:inline-block; animation:spin .7s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  body.busy main { opacity:.5; pointer-events:none; transition:opacity .12s; }
+</style>
+</head>
+<body>
+<header>
+  <h1>📈 Alert Dashboard</h1>
+  <button onclick="refresh()">↻ Refresh</button>
+  <button class="primary" onclick="toggleAll(true)">Enable all</button>
+  <button onclick="toggleAll(false)">Disable all</button>
+  <button onclick="webhookify()" title="Add this dashboard's webhook + a symbol/price/name message to ALL alerts">🔗 Webhook all</button>
+  <button onclick="save()">💾 Save to config</button>
+  <span id="status" class="muted"></span>
+  <span id="busy"><span class="spinner"></span> working…</span>
+</header>
+<main>
+  <div class="panel">
+    <h2>Symbol × Type — click a cell to toggle · empty cell to add · row/column header toggles all · tab Enable/Disable per group</h2>
+    <div id="matrix" class="muted">loading…</div>
+  </div>
+  <div class="panel">
+    <h2>Add alert</h2>
+    <div class="row">
+      <input id="addSyms" placeholder="EXCHANGE:SYM, comma-separated" size="34">
+      <select id="addType" onchange="renderParams()"></select>
+      <span id="addParams" class="row"></span>
+      <button class="primary" onclick="createAlert()">Create</button>
+    </div>
+    <div id="addResult" class="muted" style="margin-top:6px"></div>
+  </div>
+  <div class="panel">
+    <h2>Recently fired <span class="muted" id="firedcount"></span>
+      <span class="muted" style="float:right;font-weight:400;text-transform:none;font-size:11px">polled from TradingView (last_fire_time) · TV webhooks need a public https URL so we poll instead</span></h2>
+    <div id="fired" class="muted">loading…</div>
+  </div>
+</main>
+<script>
+let S = { alerts:[], symbols:[], types:[], tabs:[], templates:[] };
+const KINDS = ['ema_cross','ema_cross_ema','vwap_cross','price_cross_value'];
+// display grouping: collapse the level/trap indicator types into single columns
+const GROUP_MEMBERS = { 'P*H':['pdh','pwh','pmh'], 'P*L':['pdl','pwl','pml'], 'Trap':['buyers_trapped','sellers_trapped'] };
+const T2G = {}; for (const [g,ms] of Object.entries(GROUP_MEMBERS)) for (const m of ms) T2G[m]=g;
+const groupOf = (t) => T2G[t] || t;
+const membersOf = (g) => GROUP_MEMBERS[g] || [g];
+const GORDER = ['P*H','P*L','Trap','vwap_cross','ema_cross','ema_cross_ema','price_cross_value'];
+// cross types arrive direction-encoded from the server: "ema_cross~down" → separate up/down columns
+const KIND_SHORT = { ema_cross:'EMA', ema_cross_ema:'EMA×EMA', vwap_cross:'VWAP', price_cross_value:'Price', raw:'raw' };
+const DIRARROW = { up:'↑', down:'↓', cross:'↕' };
+const colLabel = (g) => g.includes('~') ? `${KIND_SHORT[g.split('~')[0]]||g.split('~')[0]} ${DIRARROW[g.split('~')[1]]||g.split('~')[1]}` : g.replace(/_/g,' ');
+const $ = (id) => document.getElementById(id);
+const setStatus = (t) => { $('status').textContent = t; };
+let busyN = 0;
+function setBusy(on){ busyN = Math.max(0, busyN + (on ? 1 : -1)); document.body.classList.toggle('busy', busyN > 0); }
+async function run(fn){ setBusy(true); try { return await fn(); } finally { setBusy(false); } }
+
+async function api(path, body) {
+  const r = await fetch(path, body ? { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) } : {});
+  return r.json();
+}
+async function loadState() { S = await api('/api/state'); render(); renderFired(await api('/api/fired')); }
+async function refresh() { setStatus(''); return run(loadState); }
+function cellState(sym, group) {
+  const m = S.alerts.filter(a => a.symbol===sym && groupOf(a.type)===group);
+  if (!m.length) return { cls:'none', n:0, act:0 };
+  const act = m.filter(a=>a.active).length;
+  return { cls: act===m.length ? 'on' : act===0 ? 'off' : 'mix', n:m.length, act };
+}
+async function toggle(symbols, types, active) { return run(async()=>{ await api('/api/toggle', { symbols, types, active }); await loadState(); }); }
+async function toggleTab(chart_id, active) { return run(async()=>{ await api('/api/toggle', { tab:chart_id, active }); await loadState(); }); }
+async function toggleAll(active) { return run(async()=>{ await api('/api/toggle', { active }); await loadState(); }); }
+
+function render() {
+  const groups = [...new Set(S.types.map(groupOf))].sort((a,b)=>{const ia=GORDER.indexOf(a),ib=GORDER.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib) || a.localeCompare(b);});
+  // symbol -> first tab index that contains it (for grouping rows by tab)
+  let h = '<table><tr><th class="muted" style="font-weight:400">empty = add ›</th>';
+  for (const g of groups) h += `<th class="col clickable" onclick="colToggle('${g}')">${colLabel(g)}</th>`;
+  h += '</tr>';
+  const rowFor = (sym) => {
+    let r = `<tr><th class="sym clickable" onclick="rowToggle('${sym}')">${sym}</th>`;
+    for (const g of groups) {
+      const c = cellState(sym, g);
+      if (c.n === 0) r += `<td class="cell add" title="add ${colLabel(g)} for ${sym.split(':').pop()}" onclick="cellClick('${sym}','${g}')">+</td>`;
+      else r += `<td class="cell ${c.cls}" title="${c.act}/${c.n} active — click to ${c.act ? 'disable' : 'enable'}" onclick="cellClick('${sym}','${g}')">${c.act}/${c.n}</td>`;
+    }
+    return r + '</tr>';
+  };
+  const cspan = groups.length + 1;
+  const onTab = new Set(S.tabs.flatMap((t) => t.symbols));
+  for (const tab of S.tabs.filter((t) => t.symbols.length)) {   // EVERY tab, with ALL its symbols
+    const label = [...new Set(tab.symbols.map((s) => s.split(':').pop()))].join(', ');
+    const ctl = `<button onclick="toggleTab('${tab.chart_id}',true)">Enable</button><button onclick="toggleTab('${tab.chart_id}',false)">Disable</button>`;
+    h += `<tr class="tabhdr grptop"><td colspan="${cspan}"><span class="muted">${label}</span> ${ctl}</td></tr>`;
+    for (const sym of tab.symbols) h += rowFor(sym);
+  }
+  const other = S.symbols.filter((s) => !onTab.has(s)).sort();  // alerts on symbols not on an open tab
+  if (other.length) {
+    h += `<tr class="tabhdr grptop"><td colspan="${cspan}"><span class="muted">ungrouped (alerts not on an open tab)</span></td></tr>`;
+    for (const sym of other) h += rowFor(sym);
+  }
+  h += '</table>';
+  $('matrix').innerHTML = groups.length ? h : '<span class="muted">no alerts</span>';
+  const sel = $('addType');
+  if (!sel.options.length) {
+    sel.innerHTML = S.templates.map(t=>`<option value="tpl:${t}">${t}</option>`).join('')
+      + KINDS.map(k=>`<option value="${k}">${k}</option>`).join('');
+    renderParams();
+  }
+}
+async function cellClick(sym, group) {
+  const c = cellState(sym, group);
+  if (c.n > 0) return toggle([sym], membersOf(group), c.act ? false : true);   // toggle existing
+  // empty cell → add
+  const tpls = membersOf(group).filter(m => S.templates.includes(m));
+  if (tpls.length) return run(async()=>{ for (const t of tpls) await api('/api/create', { entry:{template:t}, symbols:[sym] }); await loadState(); });
+  const [kind, dir] = group.includes('~') ? group.split('~') : [group, 'cross'];
+  if (kind === 'vwap_cross') return run(async()=>{ await api('/api/create', { entry:{vwap_cross:{direction:dir}}, symbols:[sym] }); await loadState(); });
+  // ema_cross / ema_cross_ema / price_cross_value need params → prefill the Add form (with direction preset)
+  $('addSyms').value = sym; $('addType').value = kind; renderParams();
+  if ($('p_dir')) $('p_dir').value = dir;
+  $('addResult').textContent = `↑ set params and click Create for ${sym.split(':').pop()} (${dir})`;
+  $('addSyms').scrollIntoView({ behavior:'smooth', block:'center' });
+}
+function rowToggle(sym){ const any = S.alerts.some(a=>a.symbol===sym && a.active); toggle([sym], null, !any); }
+function colToggle(group){ const any = S.alerts.some(a=>groupOf(a.type)===group && a.active); toggle(null, membersOf(group), !any); }
+
+function renderParams() {
+  const v = $('addType').value;
+  const P = (id,ph,val='') => `<input id="${id}" placeholder="${ph}" value="${val}" size="7">`;
+  const dir = `<select id="p_dir"><option>down</option><option>up</option><option>cross</option></select>`;
+  let h = '';
+  if (v==='ema_cross') h = P('p_len','length','89') + P('p_src','source','close') + dir;
+  else if (v==='ema_cross_ema') h = P('p_fast','fast','9') + P('p_slow','slow','21') + P('p_src','source','close') + dir;
+  else if (v==='vwap_cross') h = dir;
+  else if (v==='price_cross_value') h = P('p_val','value','') + dir;
+  $('addParams').innerHTML = h;
+}
+function buildEntry() {
+  const v = $('addType').value;
+  const d = () => $('p_dir').value;
+  if (v.startsWith('tpl:')) return { template: v.slice(4) };
+  if (v==='ema_cross') return { ema_cross:{ length:+$('p_len').value, source:$('p_src').value, direction:d() } };
+  if (v==='ema_cross_ema') return { ema_cross_ema:{ fast:+$('p_fast').value, slow:+$('p_slow').value, source:$('p_src').value, direction:d() } };
+  if (v==='vwap_cross') return { vwap_cross:{ direction:d() } };
+  if (v==='price_cross_value') return { price_cross_value:{ value:+$('p_val').value, direction:d() } };
+}
+async function createAlert() {
+  const symbols = $('addSyms').value.split(',').map(s=>s.trim()).filter(Boolean);
+  if (!symbols.length) { $('addResult').textContent='enter at least one EXCHANGE:SYMBOL'; return; }
+  $('addResult').textContent='creating…';
+  await run(async()=>{
+    const r = await api('/api/create', { entry: buildEntry(), symbols });
+    $('addResult').textContent = `created ${r.ok}/${r.results.length}: ` + r.results.map(x=>`${x.symbol}=${x.s}`).join(', ');
+    await loadState();
+  });
+}
+async function save() { return run(async()=>{ const r = await api('/api/save', {}); setStatus(`saved ${r.count} → ${r.saved}`); }); }
+async function webhookify() {
+  if (!confirm("Add this dashboard's webhook + a symbol/price/name message to ALL alerts (updates them in place)?")) return;
+  return run(async()=>{ const r = await api('/api/webhookify', {}); setStatus(`webhook added to ${r.ok} alerts (${r.fail} failed) → ${r.webhook}`); await loadState(); });
+}
+function renderFired(d) {
+  const f = (d && d.fired) || [];
+  $('firedcount').textContent = f.length ? `(${f.length})` : '';
+  const clean = (m) => (m||'').replace(/\{\{ticker\}\}/g,'').replace(/@?\s*\{\{close\}\}/g,'').replace(/[<>]/g,'').replace(/^[\s—·-]+/,'').trim();
+  $('fired').innerHTML = f.length ? f.map(x=>`<div><span class="muted">${new Date(x.at).toLocaleString()}</span> <b>${x.symbol.split(':').pop()}</b>${x.active?'':' <span class="muted">(disabled)</span>'} — ${clean(x.message)}</div>`).join('') : '<span class="muted">no alerts have fired yet</span>';
+}
+setInterval(async ()=>{ renderFired(await api('/api/fired')); }, 15000);
+refresh();
+</script>
+</body>
+</html>

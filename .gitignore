@@ -7,3 +7,5 @@ discovery-log.json
 # personal alert snapshots produced by export_alerts.py / alerts_sync.py export
 alerts_export.json
 alerts_config.json
+# dashboard webhook fire log (logs/webhook_alerts.jsonl etc.)
+logs/

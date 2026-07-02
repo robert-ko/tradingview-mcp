@@ -223,9 +223,14 @@ export async function listWindows() {
     let panesData = null;
 
     if (entry.chartId) {
-      for (const renderId of entry.renderers) {
-        panesData = await evaluateInTarget(renderId, PANES_EXPR);
-        if (panesData) break;
+      // Retry: under the parallel query burst below, backgrounded renderers sometimes
+      // return null on the first try — a couple of retries with a short delay recovers them.
+      for (let attempt = 0; attempt < 3 && !panesData; attempt++) {
+        if (attempt) await new Promise((r) => setTimeout(r, 250));
+        for (const renderId of entry.renderers) {
+          panesData = await evaluateInTarget(renderId, PANES_EXPR);
+          if (panesData) break;
+        }
       }
     }
 
