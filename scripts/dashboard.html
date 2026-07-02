@@ -204,9 +204,15 @@ async function webhookify() {
 }
 function renderFired(d) {
   const f = (d && d.fired) || [];
-  $('firedcount').textContent = f.length ? `(${f.length})` : '';
+  const live = d && d.source === 'webhook';
+  $('firedcount').textContent = (f.length ? `(${f.length})` : '') + (live ? '  🟢 live via webhook' : '  (polled)');
   const clean = (m) => (m||'').replace(/\{\{ticker\}\}/g,'').replace(/@?\s*\{\{close\}\}/g,'').replace(/[<>]/g,'').replace(/^[\s—·-]+/,'').trim();
-  $('fired').innerHTML = f.length ? f.map(x=>`<div><span class="muted">${new Date(x.at).toLocaleString()}</span> <b>${x.symbol.split(':').pop()}</b>${x.active?'':' <span class="muted">(disabled)</span>'} — ${clean(x.message)}</div>`).join('') : '<span class="muted">no alerts have fired yet</span>';
+  const row = (x) => {
+    const t = `<span class="muted">${new Date(x.at).toLocaleString()}</span>`;
+    if (x.via === 'live') { const c = clean(x.text); const sym = c.split(' @ ')[0]; return `<div>${t} <b>${sym}</b>${c.slice(sym.length)}</div>`; }
+    return `<div>${t} <b>${(x.symbol||'').split(':').pop()}</b>${x.active?'':' <span class="muted">(disabled)</span>'} — ${clean(x.message)}</div>`;
+  };
+  $('fired').innerHTML = f.length ? f.map(row).join('') : '<span class="muted">no alerts have fired yet</span>';
 }
 setInterval(async ()=>{ renderFired(await api('/api/fired')); }, 15000);
 refresh();

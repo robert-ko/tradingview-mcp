@@ -165,6 +165,14 @@ function logWebhook(entry) {
   if (recentWebhooks.length > 500) recentWebhooks.shift();
   try { if (!existsSync(LOG_DIR)) mkdirSync(LOG_DIR, { recursive: true }); appendFileSync(WEBHOOK_LOG, JSON.stringify(entry) + '\n'); } catch {}
 }
+// hydrate recent fires from the log so the panel isn't empty after a restart
+try {
+  if (existsSync(WEBHOOK_LOG)) {
+    for (const l of readFileSync(WEBHOOK_LOG, 'utf8').trim().split('\n').slice(-200)) {
+      try { recentWebhooks.push(JSON.parse(l)); } catch {}
+    }
+  }
+} catch {}
 
 // ── http server ──────────────────────────────────────────────────────────────
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -215,11 +223,15 @@ const server = http.createServer(async (req, res) => {
       // recreate each alert with the webhook + symbol/price/name message, then delete the old
       // (preserving each alert's enabled/disabled state). modify_restart_alert can leave fired
       // on_first_fire alerts inactive, so recreate is the reliable path.
+      // Optional body.defaults overrides notification fields, e.g. {popup:false,sound_duration:0}
+      // to mute the audible desktop alert while keeping the webhook.
+      const body = JSON.parse(await readBody(req) || '{}');
+      const extra = body.defaults || {};
       const { alerts = [] } = await list();
       let ok = 0, fail = 0;
       for (const a of alerts) {
         try {
-          const r = await createAlert(buildPayload(alertToEntry(a), a.symbol, {}));
+          const r = await createAlert(buildPayload(alertToEntry(a), a.symbol, extra));
           if (r && r.s === 'ok' && r.id) {
             await deleteAlerts({ alert_ids: [a.alert_id] });
             if (!a.active) await setAlertsActive({ alert_ids: [r.id], active: false });
@@ -241,14 +253,20 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === 'GET' && path === '/api/webhook') return json(res, 200, { recent: recentWebhooks.slice(-100).reverse(), logPath: WEBHOOK_LOG });
     if (req.method === 'GET' && path === '/api/fired') {
-      // TradingView webhooks can't reach localhost (cloud-origin, ports 80/443 only), so we
-      // surface fired alerts by polling last_fire_time from list_alerts instead.
+      // Prefer live webhook fires delivered through the public tunnel — they carry the
+      // resolved ticker/price. Fall back to polling last_fire_time from list_alerts when
+      // no webhook fires have been received yet (e.g. tunnel down).
+      if (recentWebhooks.length) {
+        const fired = recentWebhooks.slice(-100).reverse()
+          .map((e) => ({ at: e.at, via: 'live', text: typeof e.body === 'string' ? e.body : JSON.stringify(e.body) }));
+        return json(res, 200, { fired, source: 'webhook' });
+      }
       const { alerts = [] } = await list();
       const fired = alerts
         .filter((a) => a.last_fired)
-        .map((a) => ({ id: a.alert_id, symbol: a.symbol, message: a.message, at: a.last_fired, active: a.active }))
+        .map((a) => ({ id: a.alert_id, symbol: a.symbol, message: a.message, at: a.last_fired, active: a.active, via: 'poll' }))
         .sort((x, y) => String(y.at).localeCompare(String(x.at)));
-      return json(res, 200, { fired: fired.slice(0, 60) });
+      return json(res, 200, { fired: fired.slice(0, 60), source: 'poll' });
     }
     if (req.method === 'GET' && path === '/webhook.log') {
       res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
