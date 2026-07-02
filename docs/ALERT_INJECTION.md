@@ -63,7 +63,10 @@ fetch('https://pricealerts.tradingview.com/create_alert', {
 { "payload": {
   "conditions": [{
     "type": "cross",                 // cross | greater | less | ...
-    "frequency": "on_first_fire",    // or "once_per_bar", etc.
+    "frequency": "on_first_fire",    // study/indicator cross alerts ONLY accept on_first_fire;
+                                     // once_per_bar / once_per_minute / once_per_bar_close /
+                                     // only_once all return {code:"invalid_request"}. To lower
+                                     // the firing rate, raise `resolution` (e.g. 10S -> "1").
     "series": [ /* see "Conditions" */ ],
     "resolution": "10S"
   }],

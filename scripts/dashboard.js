@@ -13,13 +13,16 @@
 import http from 'node:http';
 import { readFileSync, writeFileSync, appendFileSync, existsSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 
 import { list, setAlertsActive, deleteAlerts } from '../src/core/alerts.js';
 import { evaluateAsync } from '../src/connection.js';
 import { listWindows } from '../src/core/tab.js';
 
-const __dir = dirname(fileURLToPath(import.meta.url));
+const __file = fileURLToPath(import.meta.url);
+const __dir = dirname(__file);
+// true when run directly (`node dashboard.js`), false when imported (e.g. by quiet_alerts.mjs)
+const isMain = process.argv[1] && resolve(process.argv[1]) === __file;
 const PORT = Number((process.argv.find((a) => a.startsWith('--port='))?.split('=')[1]) || process.env.PORT || 8787);
 const HOST = process.env.DASH_HOST || '127.0.0.1';
 const TEMPLATES = JSON.parse(readFileSync(join(__dir, 'alert_templates.json'), 'utf8'));
@@ -34,7 +37,7 @@ const MODIFY_URL = 'https://pricealerts.tradingview.com/modify_restart_alert';
 // WEBHOOK_SECRET adds an unguessable path segment so a public /webhook can't be spammed.
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || '';
 const WEBHOOK_PATH = `/webhook${WEBHOOK_SECRET ? '/' + WEBHOOK_SECRET : ''}`;
-const WEBHOOK_URL = process.env.WEBHOOK_URL || `http://localhost:${PORT}${WEBHOOK_PATH}`;
+export const WEBHOOK_URL = process.env.WEBHOOK_URL || `http://localhost:${PORT}${WEBHOOK_PATH}`;
 
 // ── alert classify/build (JS port of alerts_sync.py / batch_alerts.py) ───────
 const TYPE_DIR = { cross: 'cross', cross_up: 'up', cross_down: 'down' };
@@ -54,7 +57,7 @@ for (const [name, p] of Object.entries(TEMPLATES)) {
 const clone = (x) => JSON.parse(JSON.stringify(x));
 const cleanSymbol = (s) => { try { return JSON.parse(String(s).replace(/^=/, '')).symbol; } catch { return s; } };
 
-function classify(alert) {
+export function classify(alert) {
   const sym = cleanSymbol(alert.symbol || '');
   const short = sym.split(':').pop();
   const cond = alert.condition || {};
@@ -77,7 +80,7 @@ function classify(alert) {
   return entry;
 }
 // cross kinds get their direction encoded so up/down are separate columns: "ema_cross~down"
-const typeLabel = (kind) => (kind.type === 'template' ? kind.name : (kind.direction ? `${kind.type}~${kind.direction}` : kind.type));
+export const typeLabel = (kind) => (kind.type === 'template' ? kind.name : (kind.direction ? `${kind.type}~${kind.direction}` : kind.type));
 
 function emaStudy(length, source) { const s = clone(TEMPLATES.ema.conditions[0].series[1]); s.inputs.in_0 = length; s.inputs.in_1 = source; return s; }
 const verbOf = (t) => ({ cross_up: 'crossing up', cross_down: 'crossing down', cross: 'crossing' }[t] || 'crossing');
@@ -85,10 +88,10 @@ const symbolDescriptor = (full) => '=' + JSON.stringify({ adjustment: 'dividends
 const expiry = (days) => new Date(Date.now() + days * 86400000).toISOString().replace(/\.\d+Z$/, '.000Z');
 
 // entry: a batch-style spec {template|ema_cross|ema_cross_ema|vwap_cross|price_cross_value|raw, message?, resolution?}
-function buildPayload(entry, symbol, defaults = {}) {
+export function buildPayload(entry, symbol, defaults = {}) {
   const short = symbol.split(':').pop();
   const opts = { ...defaults };
-  for (const k of ['resolution', 'expiration_days', 'message']) if (k in entry) opts[k] = entry[k];
+  for (const k of ['resolution', 'expiration_days', 'message', 'frequency']) if (k in entry) opts[k] = entry[k];
   // message carries symbol ({{ticker}}), live price ({{close}}) and the alert name
   const msg = (name) => (opts.message || `{{ticker}} @ {{close}} — ${name}`).split('{sym}').join(short);
   let p;
@@ -102,12 +105,14 @@ function buildPayload(entry, symbol, defaults = {}) {
   p.symbol = symbolDescriptor(symbol); p.name = null; p.expiration = expiry(Number(opts.expiration_days ?? 30));
   p.web_hook = WEBHOOK_URL;   // report fires to this dashboard
   if (opts.resolution) { p.resolution = opts.resolution; for (const c of p.conditions) c.resolution = opts.resolution; }
+  // firing rate: on_first_fire | once_per_bar | once_per_bar_close (per-condition)
+  if (opts.frequency) for (const c of p.conditions) c.frequency = opts.frequency;
   for (const f of ['popup', 'mobile_push', 'sms_over_email', 'email', 'sound_file', 'sound_duration', 'auto_deactivate']) if (f in defaults) p[f] = defaults[f];
   return p;
 }
 
 // classify a live alert into a buildPayload entry (for re-applying webhook/message to existing alerts)
-function alertToEntry(a) {
+export function alertToEntry(a) {
   const cl = classify(a);
   const e = { resolution: cl.resolution };
   const k = cl.kind;
@@ -124,7 +129,7 @@ async function modifyAlert(payload) {
     + `.catch(function(e){return {s:'err',err:String(e)};})`);
 }
 
-async function createAlert(payload) {
+export async function createAlert(payload) {
   const body = JSON.stringify(JSON.stringify({ payload }));
   return evaluateAsync(`fetch('${CREATE_URL}',{method:'POST',credentials:'include',body:${body}})`
     + `.then(function(r){return r.json();}).then(function(j){return {s:j.s,id:(j.r&&j.r.alert_id),err:j.errmsg};})`
@@ -279,9 +284,11 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, HOST, () => {
-  console.log(`TradingView alert dashboard → http://${HOST}:${PORT}`);
-  console.log(`webhook receiver: POST http://${HOST}:${PORT}${WEBHOOK_PATH}  (logs to ${WEBHOOK_LOG})`);
-  console.log(`alerts will report fires to: ${WEBHOOK_URL}`);
-  if (!WEBHOOK_SECRET) console.log('tip: set WEBHOOK_SECRET when exposing publicly (see docs/WEBHOOK_TUNNEL.md)');
-});
+if (isMain) {
+  server.listen(PORT, HOST, () => {
+    console.log(`TradingView alert dashboard → http://${HOST}:${PORT}`);
+    console.log(`webhook receiver: POST http://${HOST}:${PORT}${WEBHOOK_PATH}  (logs to ${WEBHOOK_LOG})`);
+    console.log(`alerts will report fires to: ${WEBHOOK_URL}`);
+    if (!WEBHOOK_SECRET) console.log('tip: set WEBHOOK_SECRET when exposing publicly (see docs/WEBHOOK_TUNNEL.md)');
+  });
+}
