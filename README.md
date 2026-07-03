@@ -214,6 +214,19 @@ tv stream tables --filter Profiler       # table data monitoring
 tv stream all                            # all panes at once (multi-symbol)
 ```
 
+## Alert Dashboard
+
+A local, zero-dependency web UI for macro control of your alerts — enable/disable/add by
+symbol × type × tab, save the state to a config file, and watch recent fires.
+
+```bash
+node scripts/dashboard.js --port=8787     # then open http://127.0.0.1:8787
+```
+
+Binds to `127.0.0.1` only. Receiving webhook fires needs a public tunnel (TradingView fires from
+its cloud and rejects `localhost`). Full guide: [docs/DASHBOARD.md](docs/DASHBOARD.md); tunnel
+setup: [docs/WEBHOOK_TUNNEL.md](docs/WEBHOOK_TUNNEL.md).
+
 ## For AI agents working in this repo
 
 - [`CLAUDE.md`](CLAUDE.md) is auto-loaded and contains the tool decision tree plus an **"Agent Memory & Local Automation"** section.
