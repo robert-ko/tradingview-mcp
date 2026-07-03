@@ -1,25 +1,37 @@
 #!/usr/bin/env node
 /**
- * plot_today_trades.mjs  --  after-market automation
+ * plot_today_trades.mjs  --  after-market automation (v2: update saved scripts in place)
  *
  * 1. Runs the trade_plotter generator:  ./trade_indicator_generator.py --log
  * 2. Detects which <sym>_trades_indicator.pine files it (re)wrote = today's traded symbols.
  * 3. If none -> no trades today -> does nothing.
- * 4. For each symbol: finds the pane showing it (any open tab), removes the previous
- *    "<SYM> Trades Plotter" study, then adds today's via the Pine editor (Add to chart,
- *    NO cloud save -> no "...Plotter N" duplicate accumulation).
- * 5. If a symbol isn't on any open chart, opens a new tab for it and plots there.
+ * 4. For each symbol: opens the saved "<SYM> Trades Plotter" Pine script, replaces its source
+ *    with today's, and SAVES IN PLACE (Ctrl+S). Any chart study bound to that saved script
+ *    auto-refreshes with today's trades — no "Add to chart", no unsaved "My script", no
+ *    duplicate accumulation.
+ *
+ * Why v2: the old version added the *unsaved* editor script via "Add to chart", which in the
+ * current TradingView build silently added the blank default template (indicator("My script")
+ * / plot(close)) instead of the trades — so charts showed no update — and the save-name dialog
+ * spawned "<SYM> Trades Plotter 1" duplicate scripts. Updating the saved script sidesteps both
+ * and is chart/pane independent (validated: open->set->save leaves exactly one saved script).
+ *
+ * ONE-TIME per symbol: the "<SYM> Trades Plotter" study must already be on your chart, bound to
+ * the saved script (add it once via Indicators -> My scripts). After that it updates every day.
+ * A symbol with no saved "<SYM> Trades Plotter" script is reported and skipped (never auto-named,
+ * to avoid creating junk/duplicates).
  *
  * Env overrides:
  *   TRADE_PLOTTER_DIR   (default /home/robert/Dropbox_Projects/tradingview-trade_plotter)
  *   SUCCESSTRADER_LOG_DIR (default "/mnt/c/SuccessTrader Pro_x64/LOG")
+ *   PYTHON              (default the tv_env venv python — needs pandas)
  */
 import { spawnSync } from 'child_process';
 import { readdirSync, statSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
-import CDP from 'chrome-remote-interface';
 import { CDP_HOST, CDP_PORT } from '../src/connection.js';
-import { resolveRenderer, list as listTabs, newTab } from '../src/core/tab.js';
+import { list as listTabs, switchTab } from '../src/core/tab.js';
+import { ensurePineEditorOpen, openScript, setSource, save, listScripts } from '../src/core/pine.js';
 
 const PLOTTER_DIR = process.env.TRADE_PLOTTER_DIR || '/home/robert/Dropbox_Projects/tradingview-trade_plotter';
 const LOG_DIR = process.env.SUCCESSTRADER_LOG_DIR || '/mnt/c/SuccessTrader Pro_x64/LOG';
@@ -29,43 +41,7 @@ const PYTHON = process.env.PYTHON || '/mnt/c/Users/Robert/Dropbox/Projects/pyenv
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const ts = () => new Date().toISOString().replace('T', ' ').slice(0, 19);
 const log = (...a) => console.log(`[${ts()}]`, ...a);
-
-const FIND_MONACO = `
-  (function findMonacoEditor() {
-    var container = document.querySelector('.monaco-editor.pine-editor-monaco');
-    if (!container) return null;
-    var el = container, fiberKey;
-    for (var i = 0; i < 20; i++) { if (!el) break; fiberKey = Object.keys(el).find(function(k){return k.startsWith('__reactFiber$');}); if (fiberKey) break; el = el.parentElement; }
-    if (!fiberKey) return null;
-    var current = el[fiberKey];
-    for (var d = 0; d < 15; d++) {
-      if (!current) break;
-      if (current.memoizedProps && current.memoizedProps.value && current.memoizedProps.value.monacoEnv) {
-        var env = current.memoizedProps.value.monacoEnv;
-        if (env.editor && typeof env.editor.getEditors === 'function') { var editors = env.editor.getEditors(); if (editors.length > 0) return { editor: editors[0], env: env }; }
-      }
-      current = current.return;
-    }
-    return null;
-  })()
-`;
-
-// Per-pane symbols on one renderer
-const PANES_EXPR = `(function() {
-  try {
-    var all = window.TradingViewApi._chartWidgetCollection.getAll();
-    return all.map(function(cw, i) {
-      var sym = null; try { sym = cw.model().mainSeries().symbol(); } catch(e) {}
-      return { index: i, symbol: sym };
-    });
-  } catch(e) { return null; }
-})()`;
-
-async function evIn(client, expression, awaitPromise = false) {
-  const r = await client.Runtime.evaluate({ expression, returnByValue: true, awaitPromise });
-  if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description || r.exceptionDetails.text);
-  return r.result.value;
-}
+const scriptName = sym => `${sym} Trades Plotter`;
 
 // ── 1. Generate ────────────────────────────────────────────────────────────
 function runGenerator() {
@@ -85,97 +61,24 @@ function runGenerator() {
   return { ok: true, symbols };
 }
 
-// ── 2. Locate the pane for a symbol across all open tabs ─────────────────────
-async function findPane(sym) {
-  const resp = await fetch(`http://${CDP_HOST}:${CDP_PORT}/json/list`);
-  const targets = await resp.json();
-  const seen = new Set();
-  for (const t of targets) {
-    if (t.type !== 'page' || !/tradingview\.com\/chart/i.test(t.url)) continue;
-    const chartId = t.url.match(/\/chart\/([^/?]+)/)?.[1];
-    if (!chartId || seen.has(chartId)) continue;
-    seen.add(chartId);
-    let client;
-    try {
-      client = await CDP({ host: CDP_HOST, port: CDP_PORT, target: t.id });
-      await client.Runtime.enable();
-      const panes = await evIn(client, PANES_EXPR);
-      if (panes) {
-        const m = panes.find(p => p.symbol && p.symbol.split(':').pop() === sym);
-        if (m) { await client.close(); return { chartId, rendererId: t.id, paneIndex: m.index }; }
-      }
-    } catch (e) { /* ignore */ } finally { if (client) try { await client.close(); } catch {} }
-  }
-  return null;
-}
+// ── 2. Update the saved "<SYM> Trades Plotter" script in place ───────────────
+async function updateSaved(sym, code, savedNames) {
+  const name = scriptName(sym);
+  // guard: only touch symbols that already have a saved script (avoid creating junk)
+  const exists = savedNames.some(n => n.toLowerCase() === name.toLowerCase());
+  if (!exists) return { ok: false, name, skipped: true, error: 'no saved script — add it to a chart once via Indicators → My scripts' };
 
-// ── 3. Add today's indicator to a pane (remove previous, no cloud save) ──────
-async function plotOnPane(rendererId, paneIndex, sym, code) {
-  // Bring the tab to the front — a backgrounded Electron tab won't render/open the Pine editor.
-  try { await fetch(`http://${CDP_HOST}:${CDP_PORT}/json/activate/${rendererId}`); } catch {}
-  await sleep(1200);
-  const client = await CDP({ host: CDP_HOST, port: CDP_PORT, target: rendererId });
-  await client.Runtime.enable();
-  const ev = (e, ap = false) => evIn(client, e, ap);
-  const key = async (type, k, c, vk, mods = 0) => client.Input.dispatchKeyEvent({ type, modifiers: mods, key: k, code: c, windowsVirtualKeyCode: vk });
-  const clickByTitle = (re) => ev(`(function(){var els=document.querySelectorAll('[title]');for(var i=0;i<els.length;i++){var t=els[i].getAttribute('title')||'';if(${re}.test(t)&&els[i].offsetParent!==null){els[i].click();return t;}}return null;})()`);
-  const boundName = () => ev(`(function(){var e=document.querySelectorAll('[class*="name"]');for(var i=0;i<e.length;i++){var t=(e[i].textContent||'').trim();if(/Untitled script|Trades Plotter/i.test(t))return t;}return '(?)';})()`);
-  const activate = () => ev(`(function(){var d=window.TradingViewApi._chartWidgetCollection.getAll()[${paneIndex}]._mainDiv;d.dispatchEvent(new MouseEvent('mousedown',{bubbles:true}));d.dispatchEvent(new MouseEvent('click',{bubbles:true}));return true;})()`);
-  try {
-    // 1. activate pane
-    await activate();
-    // 2. open pine editor (BEFORE removing anything, so a failure never leaves a bare pane)
-    let mono = await ev(`(${FIND_MONACO}) !== null`);
-    if (!mono) {
-      await ev(`(function(){var bwb=window.TradingView&&window.TradingView.bottomWidgetBar;if(bwb){if(typeof bwb.activateScriptEditorTab==='function')bwb.activateScriptEditorTab();else if(typeof bwb.showWidget==='function')bwb.showWidget('pine-editor');}})()`);
-      await ev(`(function(){var b=document.querySelector('[aria-label="Pine"]')||document.querySelector('[data-name="pine-dialog-button"]');if(b)b.click();})()`);
-      for (let i = 0; i < 50 && !mono; i++) { await sleep(200); mono = await ev(`(${FIND_MONACO}) !== null`); }
-    }
-    if (!mono) throw new Error('pine editor/monaco not available');
-    // 3. focus + Ctrl+K Ctrl+I to get a fresh untitled (unbind)
-    await ev(`(function(){var m=${FIND_MONACO};if(m)m.editor.focus();var c=document.querySelector('.monaco-editor.pine-editor-monaco .view-lines');if(c){var r=c.getBoundingClientRect();c.dispatchEvent(new MouseEvent('mousedown',{bubbles:true,clientX:r.left+30,clientY:r.top+10}));c.dispatchEvent(new MouseEvent('mouseup',{bubbles:true,clientX:r.left+30,clientY:r.top+10}));}return true;})()`);
-    await sleep(250);
-    await key('rawKeyDown', 'k', 'KeyK', 75, 2); await key('keyUp', 'k', 'KeyK', 75, 2); await sleep(120);
-    await key('rawKeyDown', 'i', 'KeyI', 73, 2); await key('keyUp', 'i', 'KeyI', 73, 2); await sleep(800);
-    await ev(`(function(){var btns=document.querySelectorAll('button');for(var i=0;i<btns.length;i++){var t=btns[i].textContent.trim();if(/^(Discard|Don't save|No)$/i.test(t)&&btns[i].offsetParent!==null){btns[i].click();return;}}})()`);
-    await sleep(400);
-    const bn = await boundName();
-    if (!/Untitled script/i.test(bn)) throw new Error(`editor not untitled (bound to ${JSON.stringify(bn)}) — skipping to avoid overwrite`);
-    // 4. set today's source
-    const len = await ev(`(function(){var m=${FIND_MONACO};m.editor.setValue(${JSON.stringify(code)});return m.editor.getValue().length;})()`);
-    if (len < 1) throw new Error('setValue failed');
-    await sleep(400);
-    // 5. NOW remove the previous "<SYM> Trades Plotter" study (editor confirmed ready)
-    await activate();
-    const removed = await ev(`(function(){var ch=window.TradingViewApi._activeChartWidgetWV._value;var out=[];ch.getAllStudies().forEach(function(s){if(new RegExp('^'+${JSON.stringify(sym)}+' Trades Plotter','i').test(s.name)){try{ch.removeEntity(s.id);out.push(s.name);}catch(e){}}});return out;})()`);
-    if (removed.length) log(`  removed previous: ${JSON.stringify(removed)}`);
-    await sleep(400);
-    // 6. Add to chart (today's code) on the active pane
-    const before = await ev(`window.TradingViewApi._activeChartWidgetWV._value.getAllStudies().map(function(s){return s.name;})`);
-    const add = await clickByTitle('/^Add to chart$/i');
-    await sleep(2500);
-    const after = await ev(`window.TradingViewApi._activeChartWidgetWV._value.getAllStudies().map(function(s){return s.name;})`);
-    const net = after.filter(n => !before.includes(n));
-    return { ok: net.length > 0, add, net };
-  } finally { try { await client.close(); } catch {} }
-}
+  const opened = await openScript({ name });   // fetch saved source + bind the editor to it
+  await sleep(500);
+  await setSource({ source: code });           // replace with today's trades
+  await sleep(400);
+  const s = await save();                       // Ctrl+S -> in-place update (no dialog for a bound script)
+  await sleep(900);
 
-// ── 4. Open a new tab for a symbol not on any chart ──────────────────────────
-async function openTabFor(sym) {
-  const beforeIds = new Set((await listTabs()).tabs.map(t => t.chart_id));
-  await newTab();
-  await sleep(2500);
-  const after = (await listTabs()).tabs;
-  const fresh = after.find(t => !beforeIds.has(t.chart_id)) || after[after.length - 1];
-  if (!fresh) return null;
-  const rid = await resolveRenderer(fresh.chart_id);
-  const client = await CDP({ host: CDP_HOST, port: CDP_PORT, target: rid });
-  await client.Runtime.enable();
-  try {
-    await evIn(client, `(function(){var ch=window.TradingViewApi._activeChartWidgetWV.value();ch.setSymbol(${JSON.stringify(sym)},{});return true;})()`);
-    await sleep(2500);
-  } finally { try { await client.close(); } catch {} }
-  return { chartId: fresh.chart_id, rendererId: rid, paneIndex: 0 };
+  // dup guard: if a "<SYM> Trades Plotter 1" (etc.) appeared, the save wasn't in place
+  const after = (await listScripts()).scripts
+    .map(x => x.name).filter(n => new RegExp('^' + sym + ' Trades Plotter( \\d+)?$', 'i').test(n));
+  return { ok: after.length === 1, name: opened.name, id: opened.script_id, save: s.action, matches: after };
 }
 
 // ── main ─────────────────────────────────────────────────────────────────────
@@ -191,28 +94,31 @@ async function openTabFor(sym) {
     const v = await fetch(`http://${CDP_HOST}:${CDP_PORT}/json/version`).then(r => r.json());
     log(`TradingView CDP OK (${v.Browser || 'unknown'}) at ${CDP_HOST}:${CDP_PORT}`);
   } catch (e) {
-    log(`ERROR: TradingView CDP not reachable at ${CDP_HOST}:${CDP_PORT} — is TradingView open with --remote-debugging-port? Skipping upload. (${e.message})`);
+    log(`ERROR: TradingView CDP not reachable at ${CDP_HOST}:${CDP_PORT} — is TradingView open with --remote-debugging-port? Skipping. (${e.message})`);
     process.exit(1);
   }
 
-  let okN = 0, failN = 0;
+  // Need a foreground chart tab so the Pine editor is available; a backgrounded Electron tab won't open it.
+  const tabs = await listTabs();
+  if (!tabs.tabs.length) { log('ERROR: no chart tabs open.'); process.exit(1); }
+  await switchTab({ index: 0 });
+  await sleep(1500);
+  if (!(await ensurePineEditorOpen())) { log('ERROR: could not open the Pine editor.'); process.exit(1); }
+
+  const saved = (await listScripts()).scripts.map(s => s.name);
+
+  let okN = 0, failN = 0, skipN = 0;
   for (const { sym, file } of symbols) {
     try {
       const code = readFileSync(file, 'utf8');
-      let loc = await findPane(sym);
-      if (!loc) {
-        log(`${sym}: not on any open chart — opening a new tab.`);
-        loc = await openTabFor(sym);
-        if (!loc) { log(`${sym}: FAILED to open a chart.`); failN++; continue; }
-      }
-      log(`${sym}: plotting on chart ${loc.chartId} pane ${loc.paneIndex} ...`);
-      const res = await plotOnPane(loc.rendererId, loc.paneIndex, sym, code);
-      if (res.ok) { log(`${sym}: OK (added ${JSON.stringify(res.net)})`); okN++; }
-      else { log(`${sym}: add did not register (button=${res.add}).`); failN++; }
+      const res = await updateSaved(sym, code, saved);
+      if (res.skipped) { log(`${sym}: SKIP — ${res.error}`); skipN++; }
+      else if (res.ok) { log(`${sym}: updated saved "${res.name}" (${res.id}) in place [${res.save}]`); okN++; }
+      else { log(`${sym}: WARN save may not be in place — scripts now: ${JSON.stringify(res.matches)}`); failN++; }
     } catch (e) {
       log(`${sym}: ERROR ${e.message}`); failN++;
     }
   }
-  log(`Done. ${okN} plotted, ${failN} failed, of ${symbols.length} symbols.`);
+  log(`Done. ${okN} updated, ${skipN} skipped (no saved script), ${failN} failed, of ${symbols.length} symbols.`);
   process.exit(failN > 0 ? 1 : 0);
 })();
