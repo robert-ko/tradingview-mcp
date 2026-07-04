@@ -2,6 +2,8 @@
 
 68 tools for reading and controlling a live TradingView Desktop chart via CDP (port 9222).
 
+**New-machine setup runbook** (env checks, CDP "fetch failed" patches, quantum chart tabs, dashboard startup): `docs/HANDOFF.md`.
+
 ## CLI Quick Reference (`tv` command)
 
 The `tv` CLI mirrors the MCP tools for direct terminal use.

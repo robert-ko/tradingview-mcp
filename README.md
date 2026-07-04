@@ -214,6 +214,11 @@ tv stream tables --filter Profiler       # table data monitoring
 tv stream all                            # all panes at once (multi-symbol)
 ```
 
+## Setting up on a new machine
+
+Bringing this up on another computer (env checks, the CDP "fetch failed" patches, locating the
+quantum chart tabs, starting the dashboard): **[docs/HANDOFF.md](docs/HANDOFF.md)**.
+
 ## Alert Dashboard
 
 A local, zero-dependency web UI for macro control of your alerts — enable/disable/add by
