@@ -141,6 +141,9 @@ no duplicates).
 
 Env overrides: `TRADE_PLOTTER_DIR`, `SUCCESSTRADER_LOG_DIR`, `PYTHON`.
 
+**Full guide: [docs/TRADE_PLOTTER.md](TRADE_PLOTTER.md)** — the pipeline, the REST overwrite, per-pane
+binding, cron, and removing duplicate scripts.
+
 ---
 
 ## 7. Start the alert dashboard
